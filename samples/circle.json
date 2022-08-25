@@ -1,0 +1,7 @@
+{
+  "title": "Circle 1",
+  "description": "",
+  "paths": [{ "x": "cos(t)", "y": "sin(t)", "t0": "0", "t1": "2*pi" }],
+  "initialConditions": [{ "t": "0", "theta": "pi/3" }],
+  "outputFile": "samples/figure_circle.png"
+}

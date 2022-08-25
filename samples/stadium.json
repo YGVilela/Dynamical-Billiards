@@ -1,0 +1,12 @@
+{
+  "title": "Stadium",
+  "description": "",
+  "paths": [
+    { "x": "t", "y": "-1", "t0": "-1", "t1": "1" },
+    { "x": "cos(t)+1", "y": "sin(t)", "t0": "-pi/2", "t1": "pi/2" },
+    { "x": "-t", "y": "1", "t0": "-1", "t1": "1" },
+    { "x": "cos(t)-1", "y": "sin(t)", "t0": "pi/2", "t1": "3*pi/2" }
+  ],
+  "initialConditions": [{ "t": "0", "theta": "pi - pi/3" }],
+  "outputFile": "samples/figure_stadium.png"
+}
