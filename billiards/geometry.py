@@ -1,6 +1,18 @@
 from itertools import tee
-from sympy import parse_expr, symbols, diff, Segment2D, ImageSet, Lambda, Interval
+from sympy import parse_expr, symbols, diff, Segment2D, Interval, sqrt, acos, pi
 from sympy.calculus.util import maximum, minimum
+
+class PathParams:
+    x: str
+    y: str
+    t0: str
+    t1: str
+
+    def __init__(self, dictionaire):
+        self.x = dictionaire["x"]
+        self.y = dictionaire["y"]
+        self.t0 = dictionaire["t0"]
+        self.t1 = dictionaire["t1"]
 
 class SimplePath:
     def __init__(self, t0, t1, x, y):
@@ -45,6 +57,8 @@ class SimplePath:
         t = symbols('t')
         x = self.expressionDx.subs(t, s)
         y = self.expressionDy.subs(t, s)
+        print("evaluating ", self.expressionDx, "on t = ", s)
+        print("evaluating ", self.expressionDy, "on t = ", s)
 
         if evaluate:
             return [float(x.evalf()), float(y.evalf())]
@@ -173,4 +187,23 @@ class ComposedPath:
 
         return xMin, yMin, xMax, yMax
 
-    # def intersect_ray(ray, method="nsolve"):
+'''Determines the angle between two vectors'''
+def determine_angle(v1, v2):
+    print("Determining angle between", v1, "and", v2)
+
+    innerProduct = v1.x*v2.x+v1.y*v2.y
+    normV1 = sqrt(v1.x*v1.x+v1.y*v1.y)
+    normV2 = sqrt(v2.x*v2.x+v2.y*v2.y)
+
+    thetaCandidate = acos(innerProduct/normV1*normV2)
+    print("candidate", thetaCandidate)
+
+    # v1.x*v2.y - v2.x*v1.y = normV1*normV2*sin(theta)
+    if v1.x*v2.y - v2.x*v1.y >= 0:
+        print("Positive sin!", v1.x*v2.y - v2.x*v1.y)
+        theta = thetaCandidate
+    else:
+        print("Negative sin!", v1.x*v2.y - v2.x*v1.y)
+        theta = 2*pi-thetaCandidate
+
+    return theta

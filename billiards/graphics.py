@@ -1,47 +1,65 @@
-from numpy import linspace, array#, append
+from typing import Any, List
+from numpy import linspace, array, append
 from math import ceil
-from matplotlib.pyplot import figure
+from matplotlib.pyplot import figure, show
+from billiards.dynamics import DynamicState
 
-# from billiards.dynamics import iterate
+from billiards.geometry import ComposedPath
 
 class GraphicsMatPlotLib:
-    def __init__(self, boundary, t0, theta0):
+    boundary: ComposedPath
+    points: List[DynamicState]
+    # Figure out how to type these
+    figure: Any
+    ax: Any
+
+    def __init__(self, boundary: ComposedPath, dynamicStates: List[DynamicState] = [], renderPrecision=.1):
         self.boundary = boundary
-        self.t = t0
-        self.theta = theta0
-        [self.currentX, self.currentY] = boundary.get_point(t0, evaluate=True)
-        self.points = None
         self.figure = figure()
 
-    def render(self, deltaT=0.1):
-        t = linspace(0, self.boundary.lengthFloat, ceil(self.boundary.lengthFloat / deltaT))
+        # Add table to figure
+        lengths = linspace(0, self.boundary.lengthFloat, ceil(self.boundary.lengthFloat / renderPrecision))
 
-        x, y = array(list(map(lambda s: self.boundary.get_point(s, evaluate=True), t))).T
-        ax = self.figure.add_subplot(111)
+        x, y = array(list(map(lambda s: self.boundary.get_point(s, evaluate=True), lengths))).T
+        self.ax = self.figure.add_subplot(111)
+        self.ax.axes.set_aspect('equal')
+        self.ax.plot(x, y)
+
+        # Init points
+        pointsX = []
+        pointsY = []
+        for state in dynamicStates:
+            [x, y] = boundary.get_point(state.t, evaluate=True)
+            pointsX.append(x)
+            pointsY.append(y)
+
+        self.points, = self.ax.plot(pointsX, pointsY)
+
+    def add_points(self, dynamicStates: List[DynamicState]):
+        pointsX = []
+        pointsY = []
+        for state in dynamicStates:
+            [x, y] = self.boundary.get_point(state.t, evaluate=True)
+            pointsX.append(x)
+            pointsY.append(y)
+
+        self.points.set_xdata(append(self.points.get_xdata(), x))
+        self.points.set_ydata(append(self.points.get_ydata(), y))
+
+    def show(self):
+        show()
+
+    def plot_ray_and_path(ray, path):
+        t = linspace(0, path.lengthFloat, ceil(path.lengthFloat / 0.1))
+
+        x, y = array(list(map(lambda s: path.get_point(s, evaluate=True), t))).T
+        fig = figure()
+        ax = fig.add_subplot(111)
         ax.axes.set_aspect('equal')
+
         ax.plot(x, y)
-
-        self.points, = ax.plot([self.currentX], [self.currentY])
-
-        self.figure.canvas.draw()
-        self.figure.canvas.flush_events()
-
-
-    # def iterate(self):
-    #     [t, theta] = iterate(self.t, self.theta, self.boundary)
-    #     self.t = t
-    #     self.theta = theta
-
-    #     [x, y] = self.boundary.get_point(t, evaluate=True)
-    #     self.currentX = x
-    #     self.currentY = y
-
-    #     self.points.set_xdata(append(self.points.get_xdata(), x))
-    #     self.points.set_ydata(append(self.points.get_ydata(), y))
-    #     print(self.points.get_xdata(), self.points.get_ydata())
-
-    #     self.figure.canvas.draw()
-    #     self.figure.canvas.flush_events()
+        ax.plot([float(ray.p1.x.evalf()), float((ray.p2.x).evalf())], [float(ray.p1.y.evalf()), float((ray.p2.y).evalf())])
+        show()
 
 
 # class GraphicsPyPlot:
