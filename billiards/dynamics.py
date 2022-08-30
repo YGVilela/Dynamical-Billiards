@@ -18,112 +18,101 @@ class DynamicState:
 
 def iterate(dynamicState: DynamicState, boundary: ComposedPath):
     [pointX, pointY] = boundary.get_point(dynamicState.t)
+    print("Current point", pointX, pointY)
     [tangentX, tangentY] = boundary.get_tangent(dynamicState.t)
-
-    # print(pointX, pointY, tangentX, tangentY)
+    print("Current tangent", tangentX, tangentY)
     
     # Determine reflexion ray
     reflexionX = cos(pi - dynamicState.theta)*tangentX - sin(pi - dynamicState.theta)*tangentY
     reflexionY = sin(pi - dynamicState.theta)*tangentX + cos(pi - dynamicState.theta)*tangentY
-    print("Reflecting for", reflexionX, reflexionY)
     reflexionRay = Ray((pointX, pointY), (pointX+reflexionX, pointY+reflexionY))
+    print("Reflextion ray", reflexionRay)
     
     # Determine intersections between reflexion ray and the boundary
     intersections = []
     for component in boundary.paths:
         currentPath = component["path"]
 
-        # Get approximate intersections
-        print("Calculating intersection")
+        # Get first intersection with every path
+        print("Calculating intersection with", currentPath.expressionX, currentPath.expressionY)
         idSolve = timer.start_operation("solve")
-        currentIntersection = firstIntersection(reflexionRay, currentPath)
+        currentIntersection = first_intersection(reflexionRay, currentPath)
         timer.end_operation("solve", idSolve)
 
         if currentIntersection != None:
             intersections.append({"t": currentIntersection, "component": component})
 
+    # If there's no intersection, raise exception
     if(len(intersections) == 0):
         raise Exception("The trajectory line doesn't intersect the curve again!")
 
     # Get the closest intersection
     closestIntersection  = min(intersections, key=lambda inter: float(inter["t"].evalf()))
-    print("closest of all", closestIntersection)
+    print("Closest intersection", closestIntersection)
 
     # Determine next intersection point
     nextRelativeS = closestIntersection["t"] - closestIntersection["component"]["path"].t0
     nextAbsoluteS = nextRelativeS + closestIntersection["component"]["relative_t0"]
-    print("next s", nextRelativeS, nextAbsoluteS)
+    print("Next s", nextRelativeS, nextAbsoluteS)
 
     # Determine next incidence angle
-    nextPoint = closestIntersection["component"]["path"].get_point(nextRelativeS)
     nextTangent = closestIntersection["component"]["path"].get_tangent(nextRelativeS)
-    print(nextPoint)
-    print(nextTangent)
-    # nextTheta = acos((nextTangentX*reflexionX + nextTangentY*reflexionY)/sqrt(nextTangentX**2 + nextTangentY**2)*sqrt(reflexionX**2 + reflexionY**2))
+    print("Next tangent", nextTangent)
+
     nextTheta = determine_angle(Point2D(nextTangent), -reflexionRay.direction)
-    print(nextAbsoluteS, nextTheta)
+    print("Next theta", nextTheta)
 
     print(timer.stats())
     return DynamicState({"t": nextAbsoluteS, "theta": nextTheta})
 
-def firstIntersection(ray: Ray, path: SimplePath, plot=False):
+def first_intersection(ray: Ray, path: SimplePath, plot=False):
     if plot: GraphicsMatPlotLib.plot_ray_and_path(ray, path)
 
     # Determinte transformation to transform ray into {x > 0}
     rotationAngle = -determine_angle(Point2D(1, 0), ray.direction)
-    print(rotationAngle)
+    print("Rotation angle", rotationAngle)
 
     newOrigin = Point2D(
         ray.source.x*cos(rotationAngle) - ray.source.y*sin(rotationAngle),
         ray.source.x*sin(rotationAngle) + ray.source.y*cos(rotationAngle)
     )
-    print(newOrigin)
+    print("New origin", newOrigin)
 
     px, py = symbols("x, y")
     transformX = cos(rotationAngle)*px - sin(rotationAngle)*py - newOrigin.x
     transformY = sin(rotationAngle)*px + cos(rotationAngle)*py - newOrigin.y
-    print(transformX)
-    print(transformY)
+    print("Transformation", transformX, transformY)
 
-    # Apply transformation to path
+    # Apply transformation to path and ray
     newPath = SimplePath(
         str(path.t0),
         str(path.t1),
         str(transformX.subs({px: path.expressionX, py: path.expressionY})),
         str(transformY.subs({px: path.expressionX, py: path.expressionY})),
     )
-
-    print(newPath.expressionX)
-    print(newPath.expressionY)
+    print("New path", newPath.expressionX, newPath.expressionY)
 
     newP1 = (transformX.subs({px: ray.p1.x, py: ray.p1.y}), transformY.subs({px: ray.p1.x, py: ray.p1.y}))
     newP2 = (transformX.subs({px: ray.p2.x, py: ray.p2.y}), transformY.subs({px: ray.p2.x, py: ray.p2.y}))
     newRay = Ray(newP1, newP2)
-    print("ray", ray)
-    print("newRay", newRay)
+    print("New ray", newRay)
     if plot: GraphicsMatPlotLib.plot_ray_and_path(newRay, newPath)
 
-    # Get point where y = 0, i.e., intersection between path and the ray
-    t = symbols("t")
-    intersection = solveset(newPath.expressionY, t, domain=Interval(newPath.t0, newPath.t1))
-    print(intersection)
+    # Get the roots of y's expression, i.e., intersection between path and the ray
+    intersection = find_roots(newPath.expressionY, Interval(newPath.t0, newPath.t1))
+    print("Intersections", intersection)
 
     # If no intersection, return None
-    if intersection == EmptySet:
+    if len(intersection) == 0:
         return None
-
-    # If intersection isn't a finite set, raise exception
-    if type(intersection) != FiniteSet:
-        raise Exception("Only finite intersection implemented so far.")
 
     # Determine first intersection that isn't the ray source
     firstIntersection = None
     smallestRayArgument = 0
-    for inter in intersection.args:
+    t = symbols('t')
+    for inter in intersection:
+        # Ray argument equals the path's x
         rayArgument = newPath.expressionX.subs({t: inter})
-        
-        print(rayArgument)
-        print(newRay.contains((rayArgument, 0)))
 
         # Ignore intersections before or at the ray source
         if Eq(rayArgument, 0) or not newRay.contains((rayArgument, 0)):
@@ -137,7 +126,22 @@ def firstIntersection(ray: Ray, path: SimplePath, plot=False):
             smallestRayArgument = rayArgument
 
     return firstIntersection
-    
+
+def find_roots(expr, interval):
+    t = symbols("t")
+
+    roots = solveset(expr, t, domain=interval)
+    print("roots of", expr, roots)
+
+    if roots == EmptySet:
+        return []
+
+    # If intersection isn't a finite set, raise exception
+    if type(roots) != FiniteSet:
+        raise Exception("Only finite intersection implemented so far.")
+
+    return roots.args
+
 # def iterate_old(s0, theta0, boundaries, paralelize=False):
 #     [pointX, pointY] = boundaries.get_point(s0)
 #     point = Point2D(pointX, pointY)

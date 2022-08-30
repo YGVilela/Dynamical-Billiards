@@ -2,18 +2,17 @@ from typing import Any, List
 from numpy import linspace, array, append
 from math import ceil
 from matplotlib.pyplot import figure, show
-from billiards.dynamics import DynamicState
 
 from billiards.geometry import ComposedPath
 
 class GraphicsMatPlotLib:
     boundary: ComposedPath
-    points: List[DynamicState]
     # Figure out how to type these
+    points: List[Any]
     figure: Any
     ax: Any
 
-    def __init__(self, boundary: ComposedPath, dynamicStates: List[DynamicState] = [], renderPrecision=.1):
+    def __init__(self, boundary: ComposedPath, dynamicStates: List[Any] = [], renderPrecision=.1):
         self.boundary = boundary
         self.figure = figure()
 
@@ -35,7 +34,7 @@ class GraphicsMatPlotLib:
 
         self.points, = self.ax.plot(pointsX, pointsY)
 
-    def add_points(self, dynamicStates: List[DynamicState]):
+    def add_points(self, dynamicStates: List[Any]):
         pointsX = []
         pointsY = []
         for state in dynamicStates:
