@@ -1,5 +1,5 @@
-from sympy import symbols, cos, sin, pi, acos, sqrt, Ray, EmptySet, nsolve, Segment2D, Point2D, solve, solveset, Interval, atan, SymmetricDifference, FiniteSet, Eq, parse_expr
-from multiprocessing import Pool
+from sympy import symbols, cos, sin, pi, Ray, EmptySet, Point2D, solveset, Interval, FiniteSet, Eq, parse_expr
+# from scipy.optimize import fsolve
 from billiards.geometry import ComposedPath, SimplePath, determine_angle
 from billiards.time import sharedTimer as timer
 # from billiards.utils import doIntersect
@@ -142,20 +142,20 @@ def find_roots(expr, interval):
 
     return roots.args
 
-# def iterate_old(s0, theta0, boundaries, paralelize=False):
-#     [pointX, pointY] = boundaries.get_point(s0)
+# def iterate_numeric(dynamicState: DynamicState, boundary: ComposedPath):
+#     [pointX, pointY] = boundary.get_point(dynamicState.t)
 #     point = Point2D(pointX, pointY)
-#     [tangentX, tangentY] = boundaries.get_tangent(s0)
+#     [tangentX, tangentY] = boundary.get_tangent(dynamicState.t)
 
 #     # print(pointX, pointY, tangentX, tangentY)
     
 #     # Apply rotation of pi - theta to the tangent vector to get the reflexion direction
-#     reflexionX = cos(pi - theta0)*tangentX - sin(pi - theta0)*tangentY
-#     reflexionY = sin(pi - theta0)*tangentX + cos(pi - theta0)*tangentY
+#     reflexionX = cos(pi - dynamicState.theta)*tangentX - sin(pi - dynamicState.theta)*tangentY
+#     reflexionY = sin(pi - dynamicState.theta)*tangentX + cos(pi - dynamicState.theta)*tangentY
 
 #     # Determine reflexion segment
 #     reflexionRay = Ray((pointX, pointY), (pointX+reflexionX, pointY+reflexionY))
-#     xMin, yMin, xMax, yMax = boundaries.containing_box()
+#     xMin, yMin, xMax, yMax = boundary.containing_box()
 #     boxSegments = [
 #         Segment2D((xMin, yMin), (xMin, yMax)),
 #         Segment2D((xMin, yMax), (xMax, yMax)),
@@ -185,7 +185,7 @@ def find_roots(expr, interval):
 #     # Determine intersections between reflexion segment and the boundary
 #     intersections = []
 #     t, t1 = symbols("t, t1")
-#     for component in boundaries.paths:
+#     for component in boundary.paths:
 #         currentPath = component["path"]
 #         # print(currentPath.expressionX, currentPath.expressionY)
 
@@ -194,21 +194,13 @@ def find_roots(expr, interval):
 #         segments = currentPath.poligonize(deltaT=0.1)
 #         timer.end_operation("segmentation", idInter)
 
-#         approxIntersections = []
-#         # This isn't performing well
-#         if paralelize:
-#             pool = Pool()
-#             idInter = timer.start_operation("intersection")
-#             # Edit this to check if the segments intersect beforehand
-#             approxIntersections = pool.map(reflexionSegment.intersect, segments)
-#             timer.end_operation("intersection", idInter)
-#         else:
-#             for segment in segments:
-#                 if doIntersect(reflexionSegment.p1, reflexionSegment.p2, segment.p1, segment.p2):
-#                     idInter = timer.start_operation("intersection")
-#                     approxObject = reflexionSegment.intersect(segment)
-#                     approxIntersections.append(approxObject)
-#                     timer.end_operation("intersection", idInter)    
+#         approxIntersections = []        
+#         for segment in segments:
+#             if doIntersect(reflexionSegment.p1, reflexionSegment.p2, segment.p1, segment.p2):
+#                 idInter = timer.start_operation("intersection")
+#                 approxObject = reflexionSegment.intersect(segment)
+#                 approxIntersections.append(approxObject)
+#                 timer.end_operation("intersection", idInter)    
 
 #         closestApproxInter = None
 #         minDistance = 0
@@ -236,52 +228,32 @@ def find_roots(expr, interval):
 
 #         print("Calculating intersection")
 #         idSolve = timer.start_operation("solve")
-#         intersection = solve(
-#             [pointX+t1*reflexionX - currentPath.expressionX, pointY+t1*reflexionY - currentPath.expressionY],
-#             [t, t1],
-#             # closestApproxInter,
-#             dict=True)
-#         # print("closestApprox", closestApproxInter, "intersection", intersection)
+#         lambdifiedExpr = lambdify([t, t1], [currentPath.expressionX, currentPath.expressionY])
+#         intersection = fsolve(lambda p: lambdifiedExpr(p[0], p[1]), closestApproxInter)
+#         print("closestApprox", closestApproxInter, "intersection", intersection)
 #         timer.end_operation("solve", idSolve)
 
-#         # print(intersection)
-#         if intersection == EmptySet:
-#             continue
-
-#         print("intersections", intersection)
-#         nonTrivialIntersections = list(
-#             filter(
-#                 lambda inter: inter[t1].is_real and inter[t1] > 0 and inter[t].is_real and currentPath.is_on_domain(inter[t]),
-#                 intersection
-#             )
-#         )
-#         # print(nonTrivialIntersections)
-#         if nonTrivialIntersections.__len__() == 0:
-#             continue
-
-#         print("non trivial", nonTrivialIntersections)
-#         closestIntersection = min(nonTrivialIntersections, key=lambda inter: inter[t1])
-#         closestIntersection["component"] = component
-#         print("closest", closestIntersection)
-#         intersections.append(closestIntersection)
+#         intersections.append({"component": component, "arguments": intersection})
 
 #     if(len(intersections) == 0):
 #         raise Exception("The trajectory line doesn't intersect the curve again!")
 
 #     # Get the closest intersection
-#     closestIntersection  = min(intersections, key=lambda inter: inter[t1])
+#     closestIntersection  = min(intersections, key=lambda inter: inter["arguments"][1])
 #     print("closest of all", closestIntersection)
 
 #     # Determine next intersection point
-#     nextRelativeS = closestIntersection[t] - closestIntersection["component"]["path"].t0
+#     nextRelativeS = closestIntersection["arguments"][0] - closestIntersection["component"]["path"].t0
 #     nextAbsoluteS = nextRelativeS + closestIntersection["component"]["relative_t0"]
 #     print("next s", nextRelativeS, nextAbsoluteS)
 
 #     # Determine next incidence angle
-#     [nextTangentX, nextTangentY] = closestIntersection["component"]["path"].get_tangent(nextAbsoluteS)
-#     nextTheta = acos((nextTangentX*reflexionX + nextTangentY*reflexionY)/sqrt(nextTangentX**2 + nextTangentY**2)*sqrt(reflexionX**2 + reflexionY**2))
+#     nextTangent = closestIntersection["component"]["path"].get_tangent(nextRelativeS)
+#     print("Next tangent", nextTangent)
 
-#     print(nextAbsoluteS, nextTheta)
+#     nextTheta = determine_angle(Point2D(nextTangent), -reflexionRay.direction)
+#     print("Next theta", nextTheta)
 
 #     print(timer.stats())
-#     return nextAbsoluteS, nextTheta
+#     # return dynamicState
+#     return DynamicState({"t": nextAbsoluteS, "theta": nextTheta})
