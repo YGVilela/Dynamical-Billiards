@@ -1,7 +1,7 @@
 from typing import Any, List
 from numpy import linspace, array, append
-from math import ceil
-from matplotlib.pyplot import figure, show
+from math import ceil, pi
+from matplotlib.pyplot import figure, show, savefig
 
 from billiards.geometry import ComposedPath
 
@@ -9,6 +9,7 @@ class GraphicsMatPlotLib:
     boundary: ComposedPath
     # Figure out how to type these
     points: List[Any]
+    states: List[Any]
     figure: Any
     ax: Any
 
@@ -19,34 +20,55 @@ class GraphicsMatPlotLib:
         # Add table to figure
         lengths = linspace(0, self.boundary.lengthFloat, ceil(self.boundary.lengthFloat / renderPrecision))
 
-        x, y = array(list(map(lambda s: self.boundary.get_point(s, evaluate=True), lengths))).T
-        self.ax = self.figure.add_subplot(111)
-        self.ax.axes.set_aspect('equal')
-        self.ax.plot(x, y)
+        arrayX, arrayY = array(list(map(lambda s: self.boundary.get_point(s, evaluate=True), lengths))).T
 
         # Init points
         pointsX = []
         pointsY = []
+        statesS = []
+        statesTheta = []
         for state in dynamicStates:
             [x, y] = boundary.get_point(state.t, evaluate=True)
             pointsX.append(x)
             pointsY.append(y)
+            statesS.append(state.t)
+            statesTheta.append(state.theta)
 
-        self.points, = self.ax.plot(pointsX, pointsY)
+        # Plot trajectories
+        ax = self.figure.add_subplot(121)
+        ax.axes.set_aspect('equal')
+        ax.plot(arrayX, arrayY)
+        self.points, = ax.plot(pointsX, pointsY)
+
+        # Plot orbits
+        ax = self.figure.add_subplot(122)
+        ax.axes.set_aspect('equal')
+        ax.set_xlim([float(boundary.t0.evalf()), float(boundary.t1.evalf())])
+        ax.set_ylim([0, pi])
+        self.states, = ax.plot(statesS, statesTheta, "o")
 
     def add_points(self, dynamicStates: List[Any]):
         pointsX = []
         pointsY = []
+        statesS = []
+        statesTheta = []
         for state in dynamicStates:
             [x, y] = self.boundary.get_point(state.t, evaluate=True)
             pointsX.append(x)
             pointsY.append(y)
+            statesS.append(state.t)
+            statesTheta.append(state.theta)
 
-        self.points.set_xdata(append(self.points.get_xdata(), x))
-        self.points.set_ydata(append(self.points.get_ydata(), y))
+        self.points.set_xdata(append(self.points.get_xdata(), pointsX))
+        self.points.set_ydata(append(self.points.get_ydata(), pointsY))
+        self.states.set_xdata(append(self.states.get_xdata(), statesS))
+        self.states.set_ydata(append(self.states.get_ydata(), statesTheta))
 
     def show(self):
         show()
+
+    def save(self, path):
+        savefig(path)
 
     def plot_ray_and_path(ray, path):
         t = linspace(0, path.lengthFloat, ceil(path.lengthFloat / 0.1))

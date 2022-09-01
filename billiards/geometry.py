@@ -100,7 +100,7 @@ class SimplePath:
 
 class ComposedPath:
     def __init__(self, paths):
-        self.t0 = 0
+        self.t0 = parse_expr("0")
         self.t1 = 0
         self.paths = []
 

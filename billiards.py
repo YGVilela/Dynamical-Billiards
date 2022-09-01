@@ -20,6 +20,7 @@ if __name__ == "__main__":
     pathParams = parameters.paths
     boundary = getBoundary(pathParams)
     dynamicState = parameters.initialConditions[0]
+    graphics = GraphicsMatPlotLib(boundary, [dynamicState])
 
     # Execute dynamics
     points = [dynamicState]
@@ -28,8 +29,9 @@ if __name__ == "__main__":
         nextState = iterate(dynamicState, boundary)
         points.append(nextState)
         dynamicState = nextState
+        graphics.add_points([dynamicState])
 
     # Save trajectories and orbit
-    graphics = GraphicsMatPlotLib(boundary, points)
+    # graphics = GraphicsMatPlotLib(boundary, points)
     graphics.show()
 
