@@ -48,6 +48,7 @@ class OperationTimer:
 
         return st
 
+# Todo: Edit class so you don't have to pass the operation name to end the timer
 class Timer:
     def __init__(self):
         self.timers = {}
@@ -66,7 +67,6 @@ class Timer:
     def stats(self):
         allStats = []
         for key in self.timers:
-            print(key)
             allStats.append({"name": key, "stats": self.timers[key].stats()})
 
         return allStats

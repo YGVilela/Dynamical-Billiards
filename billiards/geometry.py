@@ -1,6 +1,8 @@
 from itertools import tee
-from sympy import parse_expr, symbols, diff, Segment2D, Interval, sqrt, acos, pi
+from sympy import parse_expr, symbols, diff, Segment2D, Interval, sqrt, acos, pi, simplify
 from sympy.calculus.util import maximum, minimum
+from billiards.time import sharedTimer as timer
+from billiards.utils import to_expr
 
 class PathParams:
     x: str
@@ -16,8 +18,8 @@ class PathParams:
 
 class SimplePath:
     def __init__(self, t0, t1, x, y):
-        self.t0 = parse_expr(t0)
-        self.t1 = parse_expr(t1)
+        self.t0 = to_expr(t0)
+        self.t1 = to_expr(t1)
         self.length = self.t1 - self.t0
 
         if self.length < 0:
@@ -57,8 +59,6 @@ class SimplePath:
         t = symbols('t')
         x = self.expressionDx.subs(t, s)
         y = self.expressionDy.subs(t, s)
-        print("evaluating ", self.expressionDx, "on t = ", s)
-        print("evaluating ", self.expressionDy, "on t = ", s)
 
         if evaluate:
             return [float(x.evalf()), float(y.evalf())]
@@ -99,10 +99,11 @@ class SimplePath:
         return Interval(self.t0, self.t1).contains(t)
 
 class ComposedPath:
-    def __init__(self, paths):
+    def __init__(self, paths, periodic=True):
         self.t0 = parse_expr("0")
         self.t1 = 0
         self.paths = []
+        self.periodic = periodic
 
         for path in paths:
             self.paths.append({
@@ -141,6 +142,9 @@ class ComposedPath:
         return firstPath.endpoint != lastPath.startpoint
 
     def get_point(self, s, evaluate = False):
+        if self.periodic:
+            s = s%self.length
+
         for currentPath in self.paths:
             # Fix that. The equality on both sides may lead to bizarre behaviours (?)
             if s >= currentPath["relative_t0"] and s <= currentPath["relative_t1"]:
@@ -149,9 +153,12 @@ class ComposedPath:
                 
                 return path.get_point(relative_s, evaluate=evaluate)
 
-        raise Exception("Can't evaluate path on t lower than 0 or greater than the length " + str(self.length))
+        raise Exception("Can't evaluate path on t = " + str(s) + "lower than 0 or greater than the length " + str(self.length))
 
     def get_tangent(self, s, evaluate=False):
+        if self.periodic:
+            s = s%self.length
+
         for component in self.paths:
             # Fix that. The equality on both sides may lead to bizarre behaviours (?)
             if s >= component["relative_t0"] and s <= component["relative_t1"]:
@@ -189,21 +196,21 @@ class ComposedPath:
 
 '''Determines the angle between two vectors'''
 def determine_angle(v1, v2):
-    print("Determining angle between", v1, "and", v2)
+    idAngleDetermination = timer.start_operation("determine_angle")
 
     innerProduct = v1.x*v2.x+v1.y*v2.y
     normV1 = sqrt(v1.x*v1.x+v1.y*v1.y)
     normV2 = sqrt(v2.x*v2.x+v2.y*v2.y)
 
     thetaCandidate = acos(innerProduct/normV1*normV2)
-    print("candidate", thetaCandidate)
 
     # v1.x*v2.y - v2.x*v1.y = normV1*normV2*sin(theta)
     if v1.x*v2.y - v2.x*v1.y >= 0:
-        print("Positive sin!", v1.x*v2.y - v2.x*v1.y)
         theta = thetaCandidate
     else:
-        print("Negative sin!", v1.x*v2.y - v2.x*v1.y)
         theta = 2*pi-thetaCandidate
 
-    return theta
+    simplified = simplify(theta)
+
+    timer.end_operation("determine_angle", idAngleDetermination)
+    return simplified

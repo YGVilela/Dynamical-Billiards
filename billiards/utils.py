@@ -3,6 +3,7 @@
 # This code is contributed by Ansh Riyal
 
 from math import isclose
+from numbers import Number
 from sympy import Max, Min, parse_expr
 
 # Given three collinear points p, q, r, the function checks if
@@ -73,3 +74,34 @@ def doIntersect(p1,q1,p2,q2):
 
     # If none of the cases
     return False
+
+def flat_array(array):
+    flatenedArray = []
+    for sublist in array:
+        for item in sublist:
+            flatenedArray.append(item)
+
+    return flatenedArray
+
+def to_number(value):
+    parsedValue = None
+    if isinstance(value, Number):
+        parsedValue = .0+value
+    elif type(value) == str:
+        expression = parse_expr(value)
+        parsedValue = float(expression.evalf())
+    else:
+        raise Exception("value must be a mathematical expression (string) or a number. Received "+type(value))
+
+    return parsedValue
+
+def to_expr(value):
+    expression = None
+    if isinstance(value, Number):
+        expression = parse_expr("0.0")+value
+    elif type(value) == str:
+        expression = parse_expr(value)
+    else:
+        raise Exception("value must be a mathematical expression (string) or a number. Received "+type(value))
+
+    return expression

@@ -1,259 +1,100 @@
-from sympy import symbols, cos, sin, pi, Ray, EmptySet, Point2D, solveset, Interval, FiniteSet, Eq, parse_expr
-# from scipy.optimize import fsolve
-from billiards.geometry import ComposedPath, SimplePath, determine_angle
-from billiards.time import sharedTimer as timer
-# from billiards.utils import doIntersect
-from billiards.graphics import GraphicsMatPlotLib
+from billiards.geometry import ComposedPath
+from billiards.numeric_methods import find_zero
+from math import sin, cos, pi, asin, acos
 
-class DynamicState:
-    def __init__(self, dictionaire):
-        self.t = dictionaire["t"]
-        self.theta = dictionaire["theta"]
+def func_to_find_roots(boundary: ComposedPath, phi0: float, theta0: float):
+    ''' recebe a fronteira do bilhar e a condição inicial do bilhar
 
-        if type(self.t) == str:
-            self.t = parse_expr(self.t)
-
-        if type(self.theta) == str:
-            self.theta = parse_expr(self.theta)
-
-def iterate(dynamicState: DynamicState, boundary: ComposedPath):
-    [pointX, pointY] = boundary.get_point(dynamicState.t)
-    print("Current point", pointX, pointY)
-    [tangentX, tangentY] = boundary.get_tangent(dynamicState.t)
-    print("Current tangent", tangentX, tangentY)
+    A saida é uma função real cuja raiz é o próximo ponto da órbita
+    '''
     
-    # Determine reflexion ray
-    reflexionX = cos(pi - dynamicState.theta)*tangentX - sin(pi - dynamicState.theta)*tangentY
-    reflexionY = sin(pi - dynamicState.theta)*tangentX + cos(pi - dynamicState.theta)*tangentY
-    reflexionRay = Ray((pointX, pointY), (pointX+reflexionX, pointY+reflexionY))
-    print("Reflextion ray", reflexionRay)
-    
-    # Determine intersections between reflexion ray and the boundary
-    intersections = []
-    for component in boundary.paths:
-        currentPath = component["path"]
+    x0, y0 = boundary.get_point(phi0, evaluate=True)
+    tangent_x0, tangent_y0 = boundary.get_tangent(phi0, evaluate=True)
 
-        # Get first intersection with every path
-        print("Calculating intersection with", currentPath.expressionX, currentPath.expressionY)
-        idSolve = timer.start_operation("solve")
-        currentIntersection = first_intersection(reflexionRay, currentPath)
-        timer.end_operation("solve", idSolve)
+    def func(phi):
+        x, y = boundary.get_point(phi, evaluate=True)
+        tangent_x, tangent_y = boundary.get_tangent(phi, evaluate=True)
 
-        if currentIntersection != None:
-            intersections.append({"t": currentIntersection, "component": component})
+        r_x = x - x0
+        r_y = y - y0
+        # (v_x, v_y) é perpendicular ao raio saindo de (x0, y0) com inclinação theta0 com a tangente
+        v_x = -(tangent_x0)*sin(theta0) - (tangent_y0)*cos(theta0)
+        v_y = -(tangent_y0)*sin(theta0) + (tangent_x0)*cos(theta0)
+        drx = tangent_x
+        dry = tangent_y
+        
+        return r_x*v_x + r_y*v_y, drx*v_x + dry*v_y
 
-    # If there's no intersection, raise exception
-    if(len(intersections) == 0):
-        raise Exception("The trajectory line doesn't intersect the curve again!")
+    return func
 
-    # Get the closest intersection
-    closestIntersection  = min(intersections, key=lambda inter: float(inter["t"].evalf()))
-    print("Closest intersection", closestIntersection)
+def make_billiard_map(boundary: ComposedPath, factor =100, debug = False, method = "newton", **kwargs):
+    '''curve é uma função do tipo
+    s --> [ (x,y), (x',y')]
+    curva(s)[0] = (x,y) é um np.array
+    curva(s)[1] = (x',y') é um np.array
 
-    # Determine next intersection point
-    nextRelativeS = closestIntersection["t"] - closestIntersection["component"]["path"].t0
-    nextAbsoluteS = nextRelativeS + closestIntersection["component"]["relative_t0"]
-    print("Next s", nextRelativeS, nextAbsoluteS)
+    periodo = dominio da parametrização
+    factor = relacionado ao intervalo onde sera procurada a raiz
 
-    # Determine next incidence angle
-    nextTangent = closestIntersection["component"]["path"].get_tangent(nextRelativeS)
-    print("Next tangent", nextTangent)
+    **kwargs: pra passar pro método de Newton.
+    So tem dois possíveis
+    acc = 0.0000000000001
+    max_iteracao = 100
+    '''
 
-    nextTheta = determine_angle(Point2D(nextTangent), -reflexionRay.direction)
-    print("Next theta", nextTheta)
+    if "acc" not in kwargs:
+        acc = 0.0000000000001
+    else:
+        acc = kwargs["acc"]
+    if "max_iteracao" not in kwargs:
+        max_iteracao = 100
+    else:
+        max_iteracao = kwargs["max_iteracao"]
 
-    print(timer.stats())
-    return DynamicState({"t": nextAbsoluteS, "theta": nextTheta})
+    if boundary.periodic:
+        periodo = boundary.lengthFloat
+    else:
+        raise Exception("Can't simulate on non-periodic boundary")
 
-def first_intersection(ray: Ray, path: SimplePath, plot=False):
-    if plot: GraphicsMatPlotLib.plot_ray_and_path(ray, path)
+    def billiard_map(phi0, theta0):
+        func = func_to_find_roots(boundary, phi0, theta0)
 
-    # Determinte transformation to transform ray into {x > 0}
-    rotationAngle = -determine_angle(Point2D(1, 0), ray.direction)
-    print("Rotation angle", rotationAngle)
 
-    newOrigin = Point2D(
-        ray.source.x*cos(rotationAngle) - ray.source.y*sin(rotationAngle),
-        ray.source.x*sin(rotationAngle) + ray.source.y*cos(rotationAngle)
-    )
-    print("New origin", newOrigin)
+        if ((-acc  < theta0) and (theta0 < acc)):
+            theta1 = 0
+            phi1 = phi0
+        if ((pi-acc < theta0) and (theta0 < pi + acc)):
+            theta1 = pi
+            phi1 = phi0
+        else:
+            phi1 = find_zero(
+                func,
+                phi0 + factor*acc,
+                phi0 + periodo - factor*acc,
+                acc = acc,
+                max_iter=max_iteracao,
+                method=method)
 
-    px, py = symbols("x, y")
-    transformX = cos(rotationAngle)*px - sin(rotationAngle)*py - newOrigin.x
-    transformY = sin(rotationAngle)*px + cos(rotationAngle)*py - newOrigin.y
-    print("Transformation", transformX, transformY)
+            phi1 = phi1 % periodo
 
-    # Apply transformation to path and ray
-    newPath = SimplePath(
-        str(path.t0),
-        str(path.t1),
-        str(transformX.subs({px: path.expressionX, py: path.expressionY})),
-        str(transformY.subs({px: path.expressionX, py: path.expressionY})),
-    )
-    print("New path", newPath.expressionX, newPath.expressionY)
+            x_phi1, y_phi1 = boundary.get_point(phi1, evaluate=True)
+            x_phi0, y_phi0 = boundary.get_point(phi0, evaluate=True)
+            dx_phi1, dy_phi1 = boundary.get_tangent(phi1, evaluate=True)
 
-    newP1 = (transformX.subs({px: ray.p1.x, py: ray.p1.y}), transformY.subs({px: ray.p1.x, py: ray.p1.y}))
-    newP2 = (transformX.subs({px: ray.p2.x, py: ray.p2.y}), transformY.subs({px: ray.p2.x, py: ray.p2.y}))
-    newRay = Ray(newP1, newP2)
-    print("New ray", newRay)
-    if plot: GraphicsMatPlotLib.plot_ray_and_path(newRay, newPath)
+            r_x = x_phi1 - x_phi0
+            r_y = y_phi1 - y_phi0
+            t_x = dx_phi1
+            t_y = dy_phi1
+            norma = pow( r_x*r_x + r_y*r_y, 1/2) * pow(t_x*t_x + t_y*t_y, 0.5)
 
-    # Get the roots of y's expression, i.e., intersection between path and the ray
-    intersection = find_roots(newPath.expressionY, Interval(newPath.t0, newPath.t1))
-    print("Intersections", intersection)
+            if ((r_x*t_x + r_y*t_y)/norma) > 1/2:
+                theta1 = asin((r_x*t_y - r_y*t_x)/norma)
+            elif ((r_x*t_x + r_y*t_y)/norma) < -1/2:
+                #theta1 = acos((rx*tx + ry*ty)/norma)
+                theta1 = pi - asin((r_x*t_y - r_y*t_x)/norma)
+            else:
+                theta1 = acos((r_x*t_x + r_y*t_y)/norma)
+            #theta1 = acos((rx*tx + ry*ty)/norma)
+        return (phi1, theta1)
 
-    # If no intersection, return None
-    if len(intersection) == 0:
-        return None
-
-    # Determine first intersection that isn't the ray source
-    firstIntersection = None
-    smallestRayArgument = 0
-    t = symbols('t')
-    for inter in intersection:
-        # Ray argument equals the path's x
-        rayArgument = newPath.expressionX.subs({t: inter})
-
-        # Ignore intersections before or at the ray source
-        if Eq(rayArgument, 0) or not newRay.contains((rayArgument, 0)):
-            continue
-
-        if firstIntersection == None:
-            firstIntersection = inter
-            smallestRayArgument = rayArgument
-        elif smallestRayArgument > rayArgument:
-            firstIntersection = inter
-            smallestRayArgument = rayArgument
-
-    return firstIntersection
-
-def find_roots(expr, interval):
-    t = symbols("t")
-
-    roots = solveset(expr, t, domain=interval)
-    print("roots of", expr, roots)
-
-    if roots == EmptySet:
-        return []
-
-    # If intersection isn't a finite set, raise exception
-    if type(roots) != FiniteSet:
-        raise Exception("Only finite intersection implemented so far.")
-
-    return roots.args
-
-# def iterate_numeric(dynamicState: DynamicState, boundary: ComposedPath):
-#     [pointX, pointY] = boundary.get_point(dynamicState.t)
-#     point = Point2D(pointX, pointY)
-#     [tangentX, tangentY] = boundary.get_tangent(dynamicState.t)
-
-#     # print(pointX, pointY, tangentX, tangentY)
-    
-#     # Apply rotation of pi - theta to the tangent vector to get the reflexion direction
-#     reflexionX = cos(pi - dynamicState.theta)*tangentX - sin(pi - dynamicState.theta)*tangentY
-#     reflexionY = sin(pi - dynamicState.theta)*tangentX + cos(pi - dynamicState.theta)*tangentY
-
-#     # Determine reflexion segment
-#     reflexionRay = Ray((pointX, pointY), (pointX+reflexionX, pointY+reflexionY))
-#     xMin, yMin, xMax, yMax = boundary.containing_box()
-#     boxSegments = [
-#         Segment2D((xMin, yMin), (xMin, yMax)),
-#         Segment2D((xMin, yMax), (xMax, yMax)),
-#         Segment2D((xMax, yMax), (xMax, yMin)),
-#         Segment2D((xMax, yMin), (xMin, yMin)),
-#         ]
-    
-#     boxIntersection = None
-#     for segment in boxSegments:
-#         idInter = timer.start_operation("intersection")
-#         approxObject = reflexionRay.intersect(segment)
-#         timer.end_operation("intersection", idInter) 
-
-#         if approxObject == EmptySet:
-#             continue
-#         if type(approxObject) == Segment2D:
-#             if approxObject.p1.distance(point) > approxObject.p2.distance(point):
-#                 boxIntersection = approxObject.p1
-#             else:
-#                 boxIntersection = approxObject.p2
-#             continue
-#         if approxObject.args[0] != point:
-#             boxIntersection = approxObject.args[0]
-
-#     reflexionSegment = Segment2D((pointX, pointY), boxIntersection)
-
-#     # Determine intersections between reflexion segment and the boundary
-#     intersections = []
-#     t, t1 = symbols("t, t1")
-#     for component in boundary.paths:
-#         currentPath = component["path"]
-#         # print(currentPath.expressionX, currentPath.expressionY)
-
-#         # Get approximate intersections
-#         idInter = timer.start_operation("segmentation")
-#         segments = currentPath.poligonize(deltaT=0.1)
-#         timer.end_operation("segmentation", idInter)
-
-#         approxIntersections = []        
-#         for segment in segments:
-#             if doIntersect(reflexionSegment.p1, reflexionSegment.p2, segment.p1, segment.p2):
-#                 idInter = timer.start_operation("intersection")
-#                 approxObject = reflexionSegment.intersect(segment)
-#                 approxIntersections.append(approxObject)
-#                 timer.end_operation("intersection", idInter)    
-
-#         closestApproxInter = None
-#         minDistance = 0
-#         for approxObject in approxIntersections:
-#             approxPoint = None
-#             if approxObject == EmptySet:
-#                 continue
-#             if type(approxObject) == Segment2D:
-#                 approxPoint = approxObject.p1
-#             else:
-#                 approxPoint = approxObject.args[0]
-
-#             currentDistance = approxPoint.distance(point)
-#             print(currentDistance, float(currentDistance.evalf()), minDistance, currentDistance > 0, closestApproxInter == None)
-#             if currentDistance > 0 and (closestApproxInter == None or minDistance > currentDistance):
-#                 approxX = float(approxPoint.x.evalf())
-#                 approxY = float(approxPoint.y.evalf())
-#                 closestApproxInter = (approxX, approxY)
-#                 minDistance = currentDistance
-
-#             print(closestApproxInter)
-
-#         if closestApproxInter == None:
-#             continue
-
-#         print("Calculating intersection")
-#         idSolve = timer.start_operation("solve")
-#         lambdifiedExpr = lambdify([t, t1], [currentPath.expressionX, currentPath.expressionY])
-#         intersection = fsolve(lambda p: lambdifiedExpr(p[0], p[1]), closestApproxInter)
-#         print("closestApprox", closestApproxInter, "intersection", intersection)
-#         timer.end_operation("solve", idSolve)
-
-#         intersections.append({"component": component, "arguments": intersection})
-
-#     if(len(intersections) == 0):
-#         raise Exception("The trajectory line doesn't intersect the curve again!")
-
-#     # Get the closest intersection
-#     closestIntersection  = min(intersections, key=lambda inter: inter["arguments"][1])
-#     print("closest of all", closestIntersection)
-
-#     # Determine next intersection point
-#     nextRelativeS = closestIntersection["arguments"][0] - closestIntersection["component"]["path"].t0
-#     nextAbsoluteS = nextRelativeS + closestIntersection["component"]["relative_t0"]
-#     print("next s", nextRelativeS, nextAbsoluteS)
-
-#     # Determine next incidence angle
-#     nextTangent = closestIntersection["component"]["path"].get_tangent(nextRelativeS)
-#     print("Next tangent", nextTangent)
-
-#     nextTheta = determine_angle(Point2D(nextTangent), -reflexionRay.direction)
-#     print("Next theta", nextTheta)
-
-#     print(timer.stats())
-#     # return dynamicState
-#     return DynamicState({"t": nextAbsoluteS, "theta": nextTheta})
+    return billiard_map
