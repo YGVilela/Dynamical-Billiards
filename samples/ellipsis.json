@@ -1,10 +1,17 @@
 {
   "paths": [{ "x": "3*cos(t)", "y": "2*sin(t)", "t0": "0", "t1": "2*pi" }],
-  "initialConditions": [],
-  "orbitsFolder": "samples\\ellipsis\\orbits",
-  "iterations": 5,
+  "initialConditions": [
+    {
+      "t": "Random",
+      "theta": "Random",
+      "tRange": [0, "2*pi"],
+      "thetaRange": [0, "pi"],
+      "instances": 500
+    }
+  ],
+  "iterations": 20,
   "method": "newton",
   "show": false,
   "saveImage": true,
-  "saveBilliard": true
+  "saveBilliard": false
 }

@@ -27,11 +27,13 @@ class GraphicsMatPlotLib:
         # Init points
         statesS = []
         statesTheta = []
+        stateColor = []
         idPlotPath = timer.start_operation("plot_paths")
         for orbit in billiards.orbits:
-            ax.plot(orbit.points["x"], orbit.points["y"])
+            p, = ax.plot(orbit.points["x"], orbit.points["y"])
             statesS.append(orbit.points["t"])
             statesTheta.append(orbit.points["theta"])
+            stateColor.append([p.get_color()] * len(orbit.points["t"]))
         timer.end_operation("plot_paths", idPlotPath)
 
         # Plot orbits
@@ -43,7 +45,15 @@ class GraphicsMatPlotLib:
             float(billiards.boundary.t1.evalf())
         ])
         ax.set_ylim([0, pi])
-        ax.plot(concatenate(statesS), concatenate(statesTheta), "o")
+
+        tArray = concatenate(statesS)
+        thetaArray = concatenate(statesTheta)
+        colorArray = concatenate(stateColor)
+
+        # This should be adjusted dynamically
+        markerSize = 1
+
+        ax.scatter(tArray, thetaArray, s=markerSize, c=colorArray)
         timer.end_operation("plot_orbit", idPlotOrbit)
 
     def show(self):

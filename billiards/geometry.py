@@ -163,7 +163,7 @@ class ComposedPath:
         for component in self.paths:
             startPoint = component["relative_t0"]
             endPoint = component["relative_t1"]
-            if s >= startPoint and s < endPoint:
+            if s >= startPoint and s <= endPoint:
                 path = component["path"]
                 relative_s = path.t0 + s - component["relative_t0"]
 
@@ -180,7 +180,7 @@ class ComposedPath:
         for component in self.paths:
             startPoint = component["relative_t0"]
             endPoint = component["relative_t1"]
-            if s >= startPoint and s < endPoint:
+            if s >= startPoint and s <= endPoint:
                 path = component["path"]
                 relative_s = path.t0 + s - component["relative_t0"]
 
