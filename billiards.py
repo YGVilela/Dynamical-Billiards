@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import sys
 from typing import List
 from billiards.billiards import Billiard
@@ -26,7 +28,12 @@ if __name__ == "__main__":
     parameters = Input(sys.argv[1])
     pathParams = parameters.paths
     boundary = getBoundary(pathParams)
-    billiard = Billiard(boundary, parameters.initialConditions, parameters.method)
+    billiard = Billiard(
+        boundary,
+        initialConditions=parameters.initialConditions, 
+        method=parameters.method, 
+        orbitsFolder=parameters.orbitsFolder
+    )
 
     # Execute dynamics
     bar = Bar('Iterating', suffix='%(percent)d%% - %(eta)ds', max=parameters.iterations*len(billiard.orbits))
@@ -38,7 +45,22 @@ if __name__ == "__main__":
     bar.finish()
 
     # Save trajectories and orbit
-    fig = GraphicsMatPlotLib(billiard)
-    fig.show()
+    fig = None
+    if parameters.show or parameters.saveImage:
+        fig = GraphicsMatPlotLib(billiard)
+    basePath = sys.argv[1].replace(".json", "")
+    if parameters.saveImage or parameters.saveBilliard:
+        Path(basePath).mkdir(exist_ok=True)
+
+
+    if parameters.show:
+        fig.show()
+
+    if parameters.saveImage:
+        fig.save(os.path.join(basePath, "plot.png"))
+
+    if parameters.saveBilliard:
+        billiard.save(basePath)
+
     print(sharedTimer.stats())
 

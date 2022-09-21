@@ -14,19 +14,36 @@ class Input:
     initialConditions: List[Tuple[float]]
     iterations: int
     method: str
+    show: bool
+    saveImage: bool
+    saveBilliard: str
+    orbitsFolder: str
 
     def __init__(self, path):
         params = json.load(open(path))
         # self.title = params["title"]
         # self.description = params["description"]
         self.paths = list(map(PathParams, params["paths"]))
-        self.initialConditions = flat_array([parse_conditions(config) for config in params["initialConditions"]])
+        if "initialConditions" in params:
+            self.initialConditions = flat_array([parse_conditions(config) for config in params["initialConditions"]])
+        else:
+            self.initialConditions = []
+
         self.iterations = params["iterations"] 
 
         if "method" in params:
             self.method = params["method"]
         else:
-            self.method = "bissec"
+            self.method = "newton"
+
+        self.show = "show" in params and params["show"]
+        self.saveImage = "saveImage" in params and params["saveImage"]
+        self.saveBilliard = "saveBilliard" in params and params["saveBilliard"]
+
+        if "orbitsFolder" in params:
+            self.orbitsFolder = params["orbitsFolder"]
+        else:
+            self.orbitsFolder = None
 
 def parse_conditions(dictionaire):
     count = 1

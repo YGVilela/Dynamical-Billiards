@@ -42,6 +42,9 @@ class GraphicsMatPlotLib:
     def show(self):
         show()
 
+    def save(self, path: str):
+        self.figure.savefig(path)
+
 
 
     

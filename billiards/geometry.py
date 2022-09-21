@@ -98,7 +98,16 @@ class SimplePath:
     def is_on_domain(self, t):
         return Interval(self.t0, self.t1).contains(t)
 
+    def to_json(self):
+        return {
+            "x": str(self.expressionX),
+            "y": str(self.expressionY),
+            "t0": str(self.t0),
+            "t1": str(self.t1)
+        }
+
 class ComposedPath:
+
     def __init__(self, paths, periodic=True):
         self.t0 = parse_expr("0")
         self.t1 = 0
@@ -115,6 +124,9 @@ class ComposedPath:
 
         self.length = self.t1
         self.lengthFloat = float(self.length.evalf())
+
+    def to_json(self):
+        return [component["path"].to_json() for component in self.paths]
 
     def is_continuous(self):
         # understand that! https://docs.python.org/3/library/itertools.html#itertools.pairwise
