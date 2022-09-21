@@ -1,5 +1,7 @@
 # A Python3 program to find if 2 given line segments intersect or not
-# Accessed in https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/ on 2022/08/24
+# Accessed in
+# https://www.geeksforgeeks.org/check-if-two-given-line-segments-intersect/
+# on 2022/08/24
 # This code is contributed by Ansh Riyal
 
 from math import isclose
@@ -8,11 +10,14 @@ from sympy import Max, Min, parse_expr
 
 # Given three collinear points p, q, r, the function checks if
 # point q lies on line segment 'pr'
+
+
 def onSegment(p, q, r):
-    if ( (q.x <= Max(p.x, r.x)) and (q.x >= Min(p.x, r.x)) and
-        (q.y <= Max(p.y, r.y)) and (q.y >= Min(p.y, r.y))):
+    if ((q.x <= Max(p.x, r.x)) and (q.x >= Min(p.x, r.x)) and
+            (q.y <= Max(p.y, r.y)) and (q.y >= Min(p.y, r.y))):
         return True
     return False
+
 
 def orientation(p, q, r):
     # to find the orientation of an ordered triplet (p,q,r)
@@ -24,25 +29,28 @@ def orientation(p, q, r):
     # See https://www.geeksforgeeks.org/orientation-3-ordered-points/amp/
     # for details of below formula.
 
-    val = float(((q.y-p.y)*(r.x-q.x))-((q.x-p.x)*(r.y-q.y)).evalf())
+    expr = ((q.y - p.y) * (r.x - q.x)) - ((q.x - p.x) * (r.y - q.y))
+    val = float(expr.evalf())
 
     if isclose(val, 0):
 
         # Collinear orientation
         return 0
     elif (val > 0):
-        
+
         # Clockwise orientation
         return 1
     elif (val < 0):
-        
+
         # Counterclockwise orientation
         return 2
 
 # The main function that returns true if
 # the line segment 'p1q1' and 'p2q2' intersect.
-def doIntersect(p1,q1,p2,q2):
-	
+
+
+def doIntersect(p1, q1, p2, q2):
+
     # Find the 4 orientations required for
     # the general and special cases
     o1 = orientation(p1, q1, p2)
@@ -75,6 +83,7 @@ def doIntersect(p1,q1,p2,q2):
     # If none of the cases
     return False
 
+
 def flat_array(array):
     flatenedArray = []
     for sublist in array:
@@ -83,25 +92,32 @@ def flat_array(array):
 
     return flatenedArray
 
+
 def to_number(value):
     parsedValue = None
     if isinstance(value, Number):
-        parsedValue = .0+value
-    elif type(value) == str:
+        parsedValue = .0 + value
+    elif isinstance(value, str):
         expression = parse_expr(value)
         parsedValue = float(expression.evalf())
     else:
-        raise Exception("value must be a mathematical expression (string) or a number. Received "+type(value))
+        raise Exception(
+            "value must be a mathematical expression (string) or a number." +
+            "Received" + type(value)
+        )
 
     return parsedValue
+
 
 def to_expr(value):
     expression = None
     if isinstance(value, Number):
-        expression = parse_expr("0.0")+value
-    elif type(value) == str:
+        expression = parse_expr("0.0") + value
+    elif isinstance(value, str):
         expression = parse_expr(value)
     else:
-        raise Exception("value must be a mathematical expression (string) or a number. Received "+type(value))
-
+        raise Exception(
+            "value must be a mathematical expression (string) or a number." +
+            "Received" + type(value)
+        )
     return expression

@@ -5,15 +5,19 @@ from matplotlib.pyplot import figure, show
 from billiards.billiards import Billiard
 from billiards.time import sharedTimer as timer
 
+
 class GraphicsMatPlotLib:
     def __init__(self, billiards: Billiard, renderPrecision=.1):
         self.figure = figure()
 
         # Add table to figure
         idPlotBoundary = timer.start_operation("plot_boundary")
-        tValues = linspace(0, billiards.boundary.lengthFloat, ceil(billiards.boundary.lengthFloat / renderPrecision))
+        numIntervals = ceil(billiards.boundary.lengthFloat / renderPrecision)
+        tValues = linspace(0, billiards.boundary.lengthFloat, numIntervals)
 
-        arrayX, arrayY = array([billiards.boundary.get_point(t, evaluate=True) for t in tValues]).T
+        arrayX, arrayY = array([
+            billiards.boundary.get_point(t, evaluate=True) for t in tValues
+        ]).T
 
         ax = self.figure.add_subplot(121)
         ax.axes.set_aspect('equal')
@@ -34,7 +38,10 @@ class GraphicsMatPlotLib:
         idPlotOrbit = timer.start_operation("plot_orbit")
         ax = self.figure.add_subplot(122)
         ax.axes.set_aspect('equal')
-        ax.set_xlim([float(billiards.boundary.t0.evalf()), float(billiards.boundary.t1.evalf())])
+        ax.set_xlim([
+            float(billiards.boundary.t0.evalf()),
+            float(billiards.boundary.t1.evalf())
+        ])
         ax.set_ylim([0, pi])
         ax.plot(concatenate(statesS), concatenate(statesTheta), "o")
         timer.end_operation("plot_orbit", idPlotOrbit)
@@ -44,7 +51,3 @@ class GraphicsMatPlotLib:
 
     def save(self, path: str):
         self.figure.savefig(path)
-
-
-
-    

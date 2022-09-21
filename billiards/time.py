@@ -48,13 +48,17 @@ class OperationTimer:
 
         return st
 
-# Todo: Edit class so you don't have to pass the operation name to end the timer
+
 class Timer:
+    '''TODO: Edit class so you don't have to pass the operation name
+    to end the timer
+    '''
+
     def __init__(self):
         self.timers = {}
 
     def start_operation(self, name):
-        if self.timers.get(name) == None:
+        if self.timers.get(name) is None:
             self.timers[name] = OperationTimer(name)
 
         id = self.timers[name].start_timer()
@@ -71,7 +75,5 @@ class Timer:
 
         return allStats
 
+
 sharedTimer = Timer()
-
-
-        

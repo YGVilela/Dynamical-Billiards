@@ -9,6 +9,7 @@ from billiards.input import Input, PathParams
 from billiards.time import sharedTimer
 from progress.bar import Bar
 
+
 def getBoundary(pathParams: List[PathParams]):
     paths = []
     for params in pathParams:
@@ -23,6 +24,7 @@ def getBoundary(pathParams: List[PathParams]):
 
     return composed
 
+
 if __name__ == "__main__":
     # Init objects from given argument
     parameters = Input(sys.argv[1])
@@ -30,16 +32,19 @@ if __name__ == "__main__":
     boundary = getBoundary(pathParams)
     billiard = Billiard(
         boundary,
-        initialConditions=parameters.initialConditions, 
-        method=parameters.method, 
+        initialConditions=parameters.initialConditions,
+        method=parameters.method,
         orbitsFolder=parameters.orbitsFolder
     )
 
     # Execute dynamics
-    bar = Bar('Iterating', suffix='%(percent)d%% - %(eta)ds', max=parameters.iterations*len(billiard.orbits))
+    bar = Bar(
+        'Iterating', suffix='%(percent)d%% - %(eta)ds',
+        max=parameters.iterations * len(billiard.orbits)
+    )
     for index in range(0, parameters.iterations):
         idIteration = sharedTimer.start_operation("iterate")
-        billiard.iterate(bar = bar)
+        billiard.iterate(bar=bar)
         sharedTimer.end_operation("iterate", idIteration)
 
     bar.finish()
@@ -52,7 +57,6 @@ if __name__ == "__main__":
     if parameters.saveImage or parameters.saveBilliard:
         Path(basePath).mkdir(exist_ok=True)
 
-
     if parameters.show:
         fig.show()
 
@@ -63,4 +67,3 @@ if __name__ == "__main__":
         billiard.save(basePath)
 
     print(sharedTimer.stats())
-

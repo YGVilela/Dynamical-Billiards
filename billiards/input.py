@@ -7,6 +7,7 @@ from billiards.geometry import PathParams
 
 from billiards.utils import flat_array, to_number
 
+
 class Input:
     # title: str
     # description: str
@@ -25,11 +26,14 @@ class Input:
         # self.description = params["description"]
         self.paths = list(map(PathParams, params["paths"]))
         if "initialConditions" in params:
-            self.initialConditions = flat_array([parse_conditions(config) for config in params["initialConditions"]])
+            conditionArray = params["initialConditions"]
+            self.initialConditions = flat_array([
+                parse_conditions(config) for config in conditionArray
+            ])
         else:
             self.initialConditions = []
 
-        self.iterations = params["iterations"] 
+        self.iterations = params["iterations"]
 
         if "method" in params:
             self.method = params["method"]
@@ -45,16 +49,18 @@ class Input:
         else:
             self.orbitsFolder = None
 
+
 def parse_conditions(dictionaire):
     count = 1
     if "instances" in dictionaire:
         count = dictionaire["instances"]
 
     return [parse_single_condition(dictionaire) for _ in range(count)]
-    
+
+
 def parse_single_condition(dictionaire):
-    if not "t" in dictionaire:
-        raise Exception("t is missing in dictionaire"+str(dictionaire))
+    if "t" not in dictionaire:
+        raise Exception("t is missing in dictionaire" + str(dictionaire))
     elif dictionaire["t"] == "Random":
         phiLow = to_number(dictionaire["tRange"][0])
         phiHigh = to_number(dictionaire["tRange"][1])
@@ -62,9 +68,8 @@ def parse_single_condition(dictionaire):
     else:
         phi0 = to_number(dictionaire["t"])
 
-
-    if not "theta" in dictionaire:
-        raise Exception("theta is missing in dictionaire"+str(dictionaire))
+    if "theta" not in dictionaire:
+        raise Exception("theta is missing in dictionaire" + str(dictionaire))
     elif dictionaire["theta"] == "Random":
         thetaLow = to_number(dictionaire["thetaRange"][0])
         thetaHigh = to_number(dictionaire["thetaRange"][1])

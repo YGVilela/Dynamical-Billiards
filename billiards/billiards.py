@@ -8,28 +8,37 @@ from pandas import DataFrame, read_csv
 from billiards.time import sharedTimer as timer
 from progress.bar import Bar
 
+
 class Orbit:
     initialCondition: Tuple[float, float]
     currentCondition: Tuple[float, float]
     points: DataFrame
-    billiardMap: Callable[[Tuple[float, float]], Tuple[Tuple[float, float], Tuple[float, float]]]
-    
+    billiardMap: Callable[
+        [Tuple[float, float]],
+        Tuple[Tuple[float, float], Tuple[float, float]]
+    ]
 
     def __init__(
-            self,
-            billiardMap, 
-            pointsCsv:str=None,
-            initialCondition: Tuple[float, float] = None,
-            initialPoint: Tuple[float, float] = None
-        ):
+        self,
+        billiardMap,
+        pointsCsv: str = None,
+        initialCondition: Tuple[float, float] = None,
+        initialPoint: Tuple[float, float] = None
+    ):
 
         self.billiardMap = billiardMap
-        if pointsCsv != None:
+        if pointsCsv is not None:
             dataFrame = read_csv(pointsCsv)
-            self.initialCondition = (dataFrame.loc[0]["t"], dataFrame.loc[0]["theta"])
-            self.currentCondition = (dataFrame.loc[len(dataFrame.index)-1]["t"], dataFrame.loc[len(dataFrame.index)-1]["theta"])
+            self.initialCondition = (
+                dataFrame.loc[0]["t"],
+                dataFrame.loc[0]["theta"]
+            )
+            self.currentCondition = (
+                dataFrame.loc[len(dataFrame.index)-1]["t"],
+                dataFrame.loc[len(dataFrame.index)-1]["theta"]
+            )
             self.points = dataFrame
-        elif initialCondition != None:
+        elif initialCondition is not None:
             self.initialCondition = initialCondition
             self.currentCondition = initialCondition
             self.points = DataFrame([{
@@ -39,7 +48,10 @@ class Orbit:
                 "y": initialPoint[1]
             }])
         else:
-            raise Exception("Csv with dataframe or initial conditions needed to create the orbit.")
+            raise Exception(
+                "Csv with dataframe or initial" +
+                "conditions needed to create the orbit."
+            )
 
     def iterate(self):
         nextCondition, nextPoint = self.billiardMap(self.currentCondition)
@@ -53,7 +65,8 @@ class Orbit:
         self.currentCondition = nextCondition
 
     def save_points(self, folder: str):
-        fileName = str(self.initialCondition[0])+"_"+str(self.initialCondition[1])+".csv"
+        t, theta = self.initialCondition
+        fileName = str(t)+"_"+str(theta)+".csv"
         path = os.path.join(folder, fileName)
         self.points.to_csv(path, index=False)
 
@@ -62,7 +75,15 @@ class Billiard:
     orbits: List[Orbit]
     boundary: ComposedPath
 
-    def __init__(self, boundary: ComposedPath, initialConditions: List[Tuple[float, float]] = [], method = "newton", orbitsFolder: str = None):
+    def __init__(
+        self,
+        boundary: ComposedPath,
+        initialConditions:
+        List[Tuple[float, float]] = [],
+        method="newton",
+        orbitsFolder: str = None
+    ):
+
         billiardMap = make_billiard_map(boundary, method=method)
         self.orbits = [
             Orbit(
@@ -72,15 +93,18 @@ class Billiard:
             ) for t in initialConditions
         ]
         self.boundary = boundary
-        if orbitsFolder != None:
+        if orbitsFolder is not None:
             for fileName in os.listdir(orbitsFolder):
                 if fileName.endswith(".csv"):
                     self.orbits.append(
-                        Orbit(billiardMap, pointsCsv=os.path.join(orbitsFolder, fileName))
+                        Orbit(
+                            billiardMap,
+                            pointsCsv=os.path.join(orbitsFolder, fileName)
+                        )
                     )
 
     def iterate(self, indexes: List[int] = None, bar: Bar = None):
-        if indexes == None:
+        if indexes is None:
             indexes = range(self.orbits.__len__())
 
         for index in indexes:
@@ -88,7 +112,8 @@ class Billiard:
             self.orbits[index].iterate()
             timer.end_operation("iterate_orbit", idMap)
 
-            if bar != None: bar.next()
+            if bar is not None:
+                bar.next()
 
     def save(self, folder: str):
         boundaryJson = self.boundary.to_json()
@@ -100,5 +125,3 @@ class Billiard:
         Path(orbitsFolder).mkdir(exist_ok=True)
         for orbit in self.orbits:
             orbit.save_points(orbitsFolder)
-            
-            

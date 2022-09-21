@@ -3,11 +3,12 @@ from billiards.geometry import ComposedPath
 from billiards.numeric_methods import find_zero
 from math import sin, cos, pi, asin, acos
 
+
 def get_objective_function(boundary: ComposedPath, phi0: float, theta0: float):
     ''' Receives the billiard boundary and returns the real function
     whose root is the argument of the next point in the billiard orbit.
     '''
-    
+
     x0, y0 = boundary.get_point(phi0, evaluate=True)
     tangent_x0, tangent_y0 = boundary.get_tangent(phi0, evaluate=True)
 
@@ -17,17 +18,24 @@ def get_objective_function(boundary: ComposedPath, phi0: float, theta0: float):
 
         r_x = x - x0
         r_y = y - y0
-        # (v_x, v_y) é perpendicular ao raio saindo de (x0, y0) com inclinação theta0 com a tangente
+        # (v_x, v_y) is perpendicular to the ray
+        # (x0, y0) com inclinação theta0 com a tangente
         v_x = -(tangent_x0)*sin(theta0) - (tangent_y0)*cos(theta0)
         v_y = -(tangent_y0)*sin(theta0) + (tangent_x0)*cos(theta0)
         drx = tangent_x
         dry = tangent_y
-        
+
         return r_x*v_x + r_y*v_y, drx*v_x + dry*v_y
 
     return func
 
-def make_billiard_map(boundary: ComposedPath, factor =100, method = "newton", **kwargs):
+
+def make_billiard_map(
+    boundary: ComposedPath,
+    factor=100,
+    method="newton",
+    **kwargs
+):
     '''Creates the billiard map for the given boundary.
 
     factor: To be documented
@@ -54,7 +62,7 @@ def make_billiard_map(boundary: ComposedPath, factor =100, method = "newton", **
         func = get_objective_function(boundary, phi0, theta0)
 
         x_phi1 = y_phi1 = None
-        if ((-acc  < theta0) and (theta0 < acc)):
+        if ((-acc < theta0) and (theta0 < acc)):
             theta1 = 0.0
             phi1 = phi0
             x_phi1, y_phi1 = boundary.get_point(phi1, evaluate=True)
@@ -67,7 +75,7 @@ def make_billiard_map(boundary: ComposedPath, factor =100, method = "newton", **
                 func,
                 phi0 + factor*acc,
                 phi0 + periodo - factor*acc,
-                acc = acc,
+                acc=acc,
                 max_iter=max_iteracao,
                 method=method)
 
@@ -81,16 +89,14 @@ def make_billiard_map(boundary: ComposedPath, factor =100, method = "newton", **
             r_y = y_phi1 - y_phi0
             t_x = dx_phi1
             t_y = dy_phi1
-            norma = pow( r_x*r_x + r_y*r_y, 1/2) * pow(t_x*t_x + t_y*t_y, 0.5)
+            norma = pow(r_x*r_x + r_y*r_y, 1/2) * pow(t_x*t_x + t_y*t_y, 0.5)
 
             if ((r_x*t_x + r_y*t_y)/norma) > 1/2:
                 theta1 = asin((r_x*t_y - r_y*t_x)/norma)
             elif ((r_x*t_x + r_y*t_y)/norma) < -1/2:
-                #theta1 = acos((rx*tx + ry*ty)/norma)
                 theta1 = pi - asin((r_x*t_y - r_y*t_x)/norma)
             else:
                 theta1 = acos((r_x*t_x + r_y*t_y)/norma)
-            #theta1 = acos((rx*tx + ry*ty)/norma)
         return ((phi1, theta1), (x_phi1, y_phi1))
 
     return billiard_map
