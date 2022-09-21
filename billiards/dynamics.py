@@ -1,17 +1,17 @@
+from typing import Tuple
 from billiards.geometry import ComposedPath
 from billiards.numeric_methods import find_zero
 from math import sin, cos, pi, asin, acos
 
-def func_to_find_roots(boundary: ComposedPath, phi0: float, theta0: float):
-    ''' recebe a fronteira do bilhar e a condição inicial do bilhar
-
-    A saida é uma função real cuja raiz é o próximo ponto da órbita
+def get_objective_function(boundary: ComposedPath, phi0: float, theta0: float):
+    ''' Receives the billiard boundary and returns the real function
+    whose root is the argument of the next point in the billiard orbit.
     '''
     
     x0, y0 = boundary.get_point(phi0, evaluate=True)
     tangent_x0, tangent_y0 = boundary.get_tangent(phi0, evaluate=True)
 
-    def func(phi):
+    def func(phi: float):
         x, y = boundary.get_point(phi, evaluate=True)
         tangent_x, tangent_y = boundary.get_tangent(phi, evaluate=True)
 
@@ -27,19 +27,12 @@ def func_to_find_roots(boundary: ComposedPath, phi0: float, theta0: float):
 
     return func
 
-def make_billiard_map(boundary: ComposedPath, factor =100, debug = False, method = "newton", **kwargs):
-    '''curve é uma função do tipo
-    s --> [ (x,y), (x',y')]
-    curva(s)[0] = (x,y) é um np.array
-    curva(s)[1] = (x',y') é um np.array
+def make_billiard_map(boundary: ComposedPath, factor =100, method = "newton", **kwargs):
+    '''Creates the billiard map for the given boundary.
 
-    periodo = dominio da parametrização
-    factor = relacionado ao intervalo onde sera procurada a raiz
+    factor: To be documented
 
-    **kwargs: pra passar pro método de Newton.
-    So tem dois possíveis
-    acc = 0.0000000000001
-    max_iteracao = 100
+    **kwargs: arguments for the numeric method. To be documented.
     '''
 
     if "acc" not in kwargs:
@@ -56,16 +49,19 @@ def make_billiard_map(boundary: ComposedPath, factor =100, debug = False, method
     else:
         raise Exception("Can't simulate on non-periodic boundary")
 
-    def billiard_map(phi0, theta0):
-        func = func_to_find_roots(boundary, phi0, theta0)
+    def billiard_map(condition: Tuple[float, float]):
+        phi0, theta0 = condition
+        func = get_objective_function(boundary, phi0, theta0)
 
-
+        x_phi1 = y_phi1 = None
         if ((-acc  < theta0) and (theta0 < acc)):
-            theta1 = 0
+            theta1 = 0.0
             phi1 = phi0
+            x_phi1, y_phi1 = boundary.get_point(phi1, evaluate=True)
         if ((pi-acc < theta0) and (theta0 < pi + acc)):
             theta1 = pi
             phi1 = phi0
+            x_phi1, y_phi1 = boundary.get_point(phi1, evaluate=True)
         else:
             phi1 = find_zero(
                 func,
@@ -95,6 +91,6 @@ def make_billiard_map(boundary: ComposedPath, factor =100, debug = False, method
             else:
                 theta1 = acos((r_x*t_x + r_y*t_y)/norma)
             #theta1 = acos((rx*tx + ry*ty)/norma)
-        return (phi1, theta1)
+        return ((phi1, theta1), (x_phi1, y_phi1))
 
     return billiard_map
