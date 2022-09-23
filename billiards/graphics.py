@@ -29,7 +29,8 @@ class GraphicsMatPlotLib:
         self,
         plotBoundary=True,
         plotPhase=True,
-        plotNextDirection=False,
+        # Reconsider the next direction implementation
+        # plotNextDirection=False,
         fig=None
     ):
         if fig is None:
@@ -54,25 +55,30 @@ class GraphicsMatPlotLib:
                 x, y = array([
                     boundary.get_point(t, evaluate=True) for t in tValues
                 ]).T
-                boundaryPoints.append([x, y])
+                boundaryPoints = [x, y]
 
                 timer.end_operation("evaluate_boundary", idPlotBoundary)
 
         # Get (orbit) points
         phasePoints = [[], []]
-        directions = []
+        trajectoryPoints = []
+        # directions = []
         idPlotPath = timer.start_operation("evaluate_orbits")
         for orbit in self.orbits:
             if plotBoundary:
-                boundaryPoints.append([orbit.points["x"], orbit.points["y"]])
+                trajectoryPoints.append([orbit.points["x"], orbit.points["y"]])
             if plotPhase:
                 phasePoints[0].append(orbit.points["t"])
                 phasePoints[1].append(orbit.points["theta"])
-            if plotNextDirection:
-                point = boundary.get_point(
-                    orbit.currentCondition[0], evaluate=True
-                )
-                directions.append(point)
+            # if plotNextDirection:
+            #     # Maybe this should be on geometry?
+            #     t, theta = orbit.currentCondition
+            #     point = boundary.get_point(t, evaluate=True)
+            #     dx, dy = boundary.get_tangent(t, evaluate=True)
+            #     vx = dx * cos(theta) - dy * sin(theta)
+            #     vy = dx * sin(theta) + dy * cos(theta)
+            #     directions.append([point, (vx, vy)])
+
         timer.end_operation("evaluate_orbits", idPlotPath)
 
         # Actually plot
@@ -84,13 +90,17 @@ class GraphicsMatPlotLib:
         else:
             axBoundary = axPhase = fig.add_subplot()
 
+        colors = []
         if plotBoundary:
             axBoundary.set_aspect('equal')
-            for x, y in boundaryPoints:
-                axBoundary.plot(x, y)
-            if plotNextDirection:
-                for x, y in directions:
-                    axBoundary.scatter([x], [y])
+            if len(boundaryPoints) > 0:
+                axBoundary.plot(boundaryPoints[0], boundaryPoints[1])
+            for x, y in trajectoryPoints:
+                p, = axBoundary.plot(x, y)
+                colors.append([p.get_color()] * len(x))
+            # if plotNextDirection:
+            #     for p, d in directions:
+            #         axBoundary.arrow(p[0], p[1], d[0], d[1])
 
         if plotPhase:
             axPhase.set_aspect('equal')
@@ -100,13 +110,17 @@ class GraphicsMatPlotLib:
             ])
             axPhase.set_ylim([0, pi])
 
-            tArray = concatenate(phasePoints[0])
-            thetaArray = concatenate(phasePoints[1])
+            if len(phasePoints[0]) > 0:
+                tArray = concatenate(phasePoints[0])
+                thetaArray = concatenate(phasePoints[1])
+                colorArray = None
+                if len(colors) > 0:
+                    colorArray = concatenate(colors)
 
-            # This should be adjusted dynamically
-            markerSize = 20 / max(log(len(tArray), 10), 1)
+                # This should be adjusted dynamically
+                markerSize = 20 / max(log(len(tArray), 10), 1)
 
-            axPhase.scatter(tArray, thetaArray, s=markerSize)
+                axPhase.scatter(tArray, thetaArray, s=markerSize, c=colorArray)
 
         timer.end_operation("plot_objects", idPlotOrbit)
 

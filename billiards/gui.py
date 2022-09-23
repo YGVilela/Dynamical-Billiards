@@ -4,11 +4,18 @@ import PySimpleGUI as sg
 from billiards.billiards import Billiard
 from billiards.geometry import SimplePath, ComposedPath
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from progress.bar import Bar
 
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
 
 # welcome screen
+
+# Constants. Consider changing this...
+CLOSE_WINDOW = 0
+dataFolder = "data"
+
+# Screens
 
 
 def welcome_window():
@@ -25,7 +32,7 @@ def welcome_window():
         event, values = window.read()
         if event == "new":
             window.hide()
-            name_simulation()
+            edit_parametrization()
             window.un_hide()
         elif event == "load":
             window.hide()
@@ -37,41 +44,6 @@ def welcome_window():
     window.close()
 
 # Todo: Edit to be able to rename
-
-
-def name_simulation(curName=None):
-    layout = [
-        [
-            sg.Text("Name"),
-            sg.In(size=(25, 1), key="name", default_text=curName)
-        ],
-        [
-            sg.Button("Back", key="back"),
-            sg.Button("Next", key="next")
-        ]
-    ]
-
-    window = sg.Window("Dynamical Billiards: Simulation Name", layout)
-
-    while True:
-        event, values = window.read()
-        if event == "back":
-            break
-
-        elif event == "next":
-            window.hide()
-            folderName = os.path.join("data", values["name"])
-            if os.path.exists(folderName):
-                sg.popup("Another simulation with that name already exists!")
-            else:
-                os.mkdir(folderName)
-                edit_parametrization()
-            window.un_hide()
-
-        elif event == sg.WIN_CLOSED:
-            break
-
-    window.close()
 
 
 def edit_parametrization(boundary=None):
@@ -135,6 +107,7 @@ def edit_parametrization(boundary=None):
     plot_widget = canvas.get_tk_widget()
     plot_widget.grid(row=0, column=0)
 
+    windowResponse = None
     while True:
         event, values = window.read()
         if event == "back":
@@ -147,7 +120,10 @@ def edit_parametrization(boundary=None):
                     sg.popup("The boundary must be closed!")
                 else:
                     billiard = Billiard(boundary)
-                    edit_initial_conditions(billiard)
+                    nextResponse = edit_initial_conditions(billiard)
+                    if nextResponse == CLOSE_WINDOW:
+                        windowResponse = nextResponse
+                        break
             except BaseException as err:
                 sg.popup(err.__str__())
 
@@ -198,12 +174,11 @@ def edit_parametrization(boundary=None):
             figure.canvas.draw()
 
         elif event == sg.WIN_CLOSED:
+            windowResponse = CLOSE_WINDOW
             break
 
     window.close()
-
-# Todo: Above 10 initial conditions, hide preview
-# and only display it when prompted
+    return windowResponse
 
 
 def edit_initial_conditions(billiard: Billiard):
@@ -215,31 +190,34 @@ def edit_initial_conditions(billiard: Billiard):
     inputLayout = [
         [
             sg.Text("T:"),
-            sg.Checkbox("Random", default=True, key="randomT")
+            sg.Checkbox(
+                "Random", default=True, key="randomT",
+                enable_events=True)
         ],
         [
-            sg.Text("Value", visible=False),
-            sg.In(size=(5, 1), key="tValue", visible=False),
-        ],
-        [
-            sg.Text("Range"),
+            sg.Text("Range", key="textTRange"),
             sg.In(size=(5, 1), key="tMin", default_text="0"),
             sg.In(size=(5, 1), key="tMax",
                   default_text=str(billiard.boundary.t1))
         ],
+        [
+            sg.Text("Value"),
+            sg.In(size=(5, 1), key="tValue", visible=False),
+        ],
         [sg.HorizontalSeparator()],
         [
             sg.Text("Theta"),
-            sg.Checkbox("Random", default=True, key="randomTheta")
-        ],
-        [
-            sg.Text("Value", visible=False),
-            sg.In(size=(5, 1), key="thetaValue", visible=False),
+            sg.Checkbox("Random", default=True, key="randomTheta",
+                        enable_events=True)
         ],
         [
             sg.Text("Range"),
             sg.In(size=(5, 1), key="thetaMin", default_text="0"),
             sg.In(size=(5, 1), key="thetaMax", default_text="pi")
+        ],
+        [
+            sg.Text("Value"),
+            sg.In(size=(5, 1), key="thetaValue", visible=False),
         ],
         [sg.HorizontalSeparator()],
         [
@@ -259,31 +237,15 @@ def edit_initial_conditions(billiard: Billiard):
 
     ]
 
-    previewLayout = [
-        [sg.Text("Preview:"), ],
-        [sg.Graph((640, 480), (0, 0), (640, 480), key='canvas')]
-    ]
-
-    window = sg.Window("Dynamical Billiards: Boundary Parametrization", [
-        [
-            sg.Column(inputLayout),
-            sg.VSeperator(),
-            # Figure this out!
-            sg.Column(previewLayout)
-        ],
+    window = sg.Window("Dynamical Billiards: Initial Conditions", [
+        [sg.Column(inputLayout)],
         [
             sg.Button("Back", key="back"),
             sg.Button("Next", key="next")
         ]
     ], finalize=True)
-    graphics = GraphicsMatPlotLib(
-        billiard.boundary, orbits=billiard.orbits
-    )
-    figure = graphics.plot(plotPhase=False)
-    canvas = FigureCanvasTkAgg(figure, window['canvas'].Widget)
-    plot_widget = canvas.get_tk_widget()
-    plot_widget.grid(row=0, column=0)
 
+    windowResponse = None
     while True:
         event, values = window.read()
         if event == "back":
@@ -291,7 +253,10 @@ def edit_initial_conditions(billiard: Billiard):
 
         elif event == "next":
             window.hide()
-            sg.popup("Nothing for now!")
+            nextResponse = simulate(billiard)
+            if nextResponse == CLOSE_WINDOW:
+                windowResponse = nextResponse
+                break
             window.un_hide()
 
         elif event == "add":
@@ -323,11 +288,6 @@ def edit_initial_conditions(billiard: Billiard):
                     curValues.append(conditionName)
                     window["conditions"].update(curValues)
 
-            figure = graphics.plot(
-                plotPhase=False, fig=figure, plotNextDirection=True
-            )
-            figure.canvas.draw()
-
         elif event == "remove":
             selectedConditions = values["conditions"]
             for conditionString in selectedConditions:
@@ -339,19 +299,145 @@ def edit_initial_conditions(billiard: Billiard):
                         conditionDict[key] -= 1
 
             window["conditions"].update(list(conditionDict.keys()))
-            figure = graphics.plot(
-                plotPhase=False, fig=figure, plotNextDirection=True
+
+        elif event == "randomT":
+            window["tValue"].update(visible=not window["tValue"].visible)
+            window["tMin"].update(visible=not window["tMin"].visible)
+            window["tMax"].update(visible=not window["tMax"].visible)
+
+        elif event == "randomTheta":
+            window["thetaValue"].update(
+                visible=not window["thetaValue"].visible
             )
-            figure.canvas.draw()
+            window["thetaMin"].update(visible=not window["thetaMin"].visible)
+            window["thetaMax"].update(visible=not window["thetaMax"].visible)
 
         elif event == sg.WIN_CLOSED:
+            windowResponse = CLOSE_WINDOW
             break
 
     window.close()
+    return windowResponse
+
+
+def simulate(billiard: Billiard):
+
+    window = sg.Window("Dynamical Billiards: Simulate", [
+        [
+            sg.Button("Iterate", key="iterate"),
+            sg.Button("Save", key="save"),
+            sg.Button("Open Image", key="open")
+        ],
+        [
+            sg.Graph((640, 480), (0, 0), (640, 480), key='canvas')
+        ],
+        [
+            sg.Button("Back", key="back"),
+            sg.Button("Close", key="close")
+        ]
+    ], finalize=True)
+
+    graph = GraphicsMatPlotLib(
+        billiard.boundary, billiard.orbits
+    )
+    figure = graph.plot()
+    canvas = FigureCanvasTkAgg(figure, window['canvas'].Widget)
+    plot_widget = canvas.get_tk_widget()
+    plot_widget.grid(row=0, column=0)
+
+    windowResponse = None
+    while True:
+        event, values = window.read()
+        if event == "back":
+            break
+
+        elif event == "iterate":
+            answer = sg.popup_get_text("How many iterations:")
+            if answer is not None:
+                try:
+                    answerAsInt = int(answer)
+                except BaseException as err:
+                    sg.popup(err.__str__())
+
+                # Todo: How to report progress?
+                bar = Bar(
+                    'Iterating', suffix='%(percent)d%% - %(eta)ds',
+                    max=answerAsInt * len(billiard.orbits)
+                )
+                billiard.iterate(iterations=answerAsInt, callback=bar.next)
+                bar.finish()
+
+                figure = graph.plot(fig=figure)
+                figure.canvas.draw()
+
+        elif event == "save":
+            answer = sg.popup_get_text("Simulation name:")
+            if answer is not None:
+                folder = os.path.join(dataFolder, answer)
+                billiard.save(folder)
+                sg.popup("Saved successfully!")
+
+        # Bug: After open, iterate doesn't work! Plot fails
+        elif event == "open":
+            GraphicsMatPlotLib.show(figure)
+
+        elif event in (sg.WIN_CLOSED, "close"):
+            windowResponse = CLOSE_WINDOW
+            break
+
+    window.close()
+    return windowResponse
 
 
 def load_simulation():
-    sg.popup("Not implemented yet!")
+    existingSimulations = os.listdir(dataFolder)
+
+    inputLayout = [
+        [
+            sg.Text("Select the simulation:"),
+        ],
+        [
+            sg.Listbox(
+                values=existingSimulations, size=(40, 20),
+                key="simulations", select_mode=sg.LISTBOX_SELECT_MODE_SINGLE
+            )
+        ]
+
+    ]
+
+    window = sg.Window("Dynamical Billiards: Select the simulation", [
+        [sg.Column(inputLayout)],
+        [
+            sg.Button("Back", key="back"),
+            sg.Button("Next", key="next")
+        ]
+    ], finalize=True)
+
+    windowResponse = None
+    while True:
+        event, values = window.read()
+        if event == "back":
+            break
+
+        elif event == "next":
+            selectedConditions = values["simulations"]
+            path = os.path.join(dataFolder, selectedConditions[0])
+            billiard = Billiard.load(path)
+
+            window.hide()
+            nextResponse = simulate(billiard)
+            if nextResponse == CLOSE_WINDOW:
+                windowResponse = nextResponse
+                break
+            window.un_hide()
+
+        elif event == sg.WIN_CLOSED:
+            windowResponse = CLOSE_WINDOW
+            break
+
+    window.close()
+    return windowResponse
+
 
 # Move this!
 

@@ -44,7 +44,7 @@ if __name__ == "__main__":
     )
     for index in range(0, parameters.iterations):
         idIteration = sharedTimer.start_operation("iterate")
-        billiard.iterate(bar=bar)
+        billiard.iterate(callback=bar.next)
         sharedTimer.end_operation("iterate", idIteration)
 
     bar.finish()

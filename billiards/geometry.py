@@ -118,6 +118,14 @@ class SimplePath:
             "t1": str(self.t1)
         }
 
+    def from_json(dictionaire):
+        return SimplePath(
+            dictionaire["t0"],
+            dictionaire["t1"],
+            dictionaire["x"],
+            dictionaire["y"],
+        )
+
 
 class ComposedPath:
 
@@ -141,6 +149,12 @@ class ComposedPath:
 
     def to_json(self):
         return [component["path"].to_json() for component in self.paths]
+
+    def from_json(componentArray):
+        paths = [
+            SimplePath.from_json(component) for component in componentArray
+        ]
+        return ComposedPath(paths)
 
     def is_continuous(self):
         # https://docs.python.org/3/library/itertools.html#itertools.pairwise
