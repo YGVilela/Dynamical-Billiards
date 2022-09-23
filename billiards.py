@@ -50,18 +50,20 @@ if __name__ == "__main__":
     bar.finish()
 
     # Save trajectories and orbit
-    fig = None
+    figure = None
     if parameters.show or parameters.saveImage:
-        fig = GraphicsMatPlotLib(billiard)
+        figure = GraphicsMatPlotLib(
+            billiard.boundary, orbits=billiard.orbits
+        ).plot()
     basePath = sys.argv[1].replace(".json", "")
     if parameters.saveImage or parameters.saveBilliard:
         Path(basePath).mkdir(exist_ok=True)
 
     if parameters.show:
-        fig.show()
+        GraphicsMatPlotLib.show(figure)
 
     if parameters.saveImage:
-        fig.save(os.path.join(basePath, "plot.png"))
+        GraphicsMatPlotLib.save(figure, os.path.join(basePath, "plot.png"))
 
     if parameters.saveBilliard:
         billiard.save(basePath)
