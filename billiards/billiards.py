@@ -6,7 +6,6 @@ from billiards.dynamics import make_billiard_map
 from billiards.geometry import ComposedPath
 from pandas import DataFrame, read_csv
 from billiards.time import sharedTimer as timer
-from progress.bar import Bar
 
 
 class Orbit:
@@ -34,8 +33,8 @@ class Orbit:
                 dataFrame.loc[0]["theta"]
             )
             self.currentCondition = (
-                dataFrame.loc[len(dataFrame.index)-1]["t"],
-                dataFrame.loc[len(dataFrame.index)-1]["theta"]
+                dataFrame.loc[len(dataFrame.index) - 1]["t"],
+                dataFrame.loc[len(dataFrame.index) - 1]["theta"]
             )
             self.points = dataFrame
         elif initialCondition is not None:
@@ -66,7 +65,7 @@ class Orbit:
 
     def save_points(self, folder: str):
         t, theta = self.initialCondition
-        fileName = str(t)+"_"+str(theta)+".csv"
+        fileName = str(t) + "_" + str(theta) + ".csv"
         path = os.path.join(folder, fileName)
         self.points.to_csv(path, index=False)
 
@@ -85,6 +84,7 @@ class Billiard:
     ):
 
         billiardMap = make_billiard_map(boundary, method=method)
+        self.billiardMap = billiardMap
         self.orbits = [
             Orbit(
                 billiardMap,
@@ -103,25 +103,55 @@ class Billiard:
                         )
                     )
 
-    def iterate(self, indexes: List[int] = None, bar: Bar = None):
+    def iterate(
+        self,
+        indexes: List[int] = None,
+        callback=None,
+        iterations=1
+    ):
         if indexes is None:
             indexes = range(self.orbits.__len__())
 
         for index in indexes:
-            idMap = timer.start_operation("iterate_orbit")
-            self.orbits[index].iterate()
-            timer.end_operation("iterate_orbit", idMap)
+            for _ in range(iterations):
+                idMap = timer.start_operation("iterate_orbit")
+                self.orbits[index].iterate()
+                timer.end_operation("iterate_orbit", idMap)
 
-            if bar is not None:
-                bar.next()
+                if callback is not None:
+                    callback()
 
     def save(self, folder: str):
+        # Saving boundary
+        Path(folder).mkdir(exist_ok=True)
         boundaryJson = self.boundary.to_json()
         path = os.path.join(folder, "boundary.json")
         with open(path, 'w', encoding='utf-8') as f:
             json.dump(boundaryJson, f, ensure_ascii=False, indent=4)
 
+        # Saving orbits
         orbitsFolder = os.path.join(folder, "orbits")
         Path(orbitsFolder).mkdir(exist_ok=True)
         for orbit in self.orbits:
             orbit.save_points(orbitsFolder)
+
+    def load(folder: str):
+        path = os.path.join(folder, "boundary.json")
+        dictionary = json.load(open(path))
+        boundary = ComposedPath.from_json(dictionary)
+
+        orbitsFolder = os.path.join(folder, "orbits")
+        return Billiard(boundary, orbitsFolder=orbitsFolder)
+
+    def add_orbit(self, initialCondition: Tuple[float, float]):
+        newOrbit = Orbit(
+            self.billiardMap,
+            initialCondition=initialCondition,
+            initialPoint=self.boundary.get_point(
+                initialCondition[0], evaluate=True
+            )
+        )
+        self.orbits.append(newOrbit)
+
+    def remove_orbit(self, index):
+        return self.orbits.pop(index)

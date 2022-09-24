@@ -2,6 +2,8 @@ from itertools import tee
 from sympy import parse_expr, symbols, diff, Segment2D, Interval
 from sympy.calculus.util import maximum, minimum
 from billiards.utils import to_expr
+from numpy import allclose
+from billiards.time import sharedTimer as timer
 
 
 class PathParams:
@@ -34,10 +36,14 @@ class SimplePath:
         self.expressionDx = diff(self.expressionX, t)
         self.expressionDy = diff(self.expressionY, t)
 
-        self.startpoint = [self.expressionX.evalf(
-            subs={t: self.t0}), self.expressionY.evalf(subs={t: self.t0})]
-        self.endpoint = [self.expressionX.evalf(
-            subs={t: self.t1}), self.expressionY.evalf(subs={t: self.t1})]
+        self.startpoint = [
+            float(self.expressionX.evalf(subs={t: self.t0})),
+            float(self.expressionY.evalf(subs={t: self.t0}))
+        ]
+        self.endpoint = [
+            float(self.expressionX.evalf(subs={t: self.t1})),
+            float(self.expressionY.evalf(subs={t: self.t1}))
+        ]
 
         self.poligonal = None
         self.poligonalDelta = 0
@@ -46,14 +52,17 @@ class SimplePath:
         if s < self.t0 or s > self.t1:
             raise Exception("Parameter outside the path's domain.")
 
+        idGetPoint = timer.start_operation("get_point")
         t = symbols('t')
         x = self.expressionX.subs(t, s)
         y = self.expressionY.subs(t, s)
 
         if evaluate:
-            return [float(x.evalf()), float(y.evalf())]
-        else:
-            return [x, y]
+            x = float(x.evalf())
+            y = float(y.evalf())
+
+        timer.end_operation("get_point", idGetPoint)
+        return [x, y]
 
     def get_tangent(self, s, evaluate=False):
         if s < self.t0 or s > self.t1:
@@ -109,12 +118,21 @@ class SimplePath:
             "t1": str(self.t1)
         }
 
+    def from_json(dictionaire):
+        return SimplePath(
+            dictionaire["t0"],
+            dictionaire["t1"],
+            dictionaire["x"],
+            dictionaire["y"],
+        )
+
 
 class ComposedPath:
 
-    def __init__(self, paths, periodic=True):
+    # Todo: Change this "periodic". It's not right
+    def __init__(self, paths=[], periodic=True):
         self.t0 = parse_expr("0")
-        self.t1 = 0
+        self.t1 = parse_expr("0")
         self.paths = []
         self.periodic = periodic
 
@@ -132,6 +150,12 @@ class ComposedPath:
     def to_json(self):
         return [component["path"].to_json() for component in self.paths]
 
+    def from_json(componentArray):
+        paths = [
+            SimplePath.from_json(component) for component in componentArray
+        ]
+        return ComposedPath(paths)
+
     def is_continuous(self):
         # https://docs.python.org/3/library/itertools.html#itertools.pairwise
         a, b = tee(self.paths)
@@ -142,7 +166,7 @@ class ComposedPath:
             firstPath = pair[0]["path"]
             lastPath = pair[1]["path"]
 
-            if firstPath.endpoint != lastPath.startpoint:
+            if not allclose(firstPath.endpoint, lastPath.startpoint):
                 return False
 
         return True
@@ -154,10 +178,10 @@ class ComposedPath:
         firstPath = self.paths[0]["path"]
         lastPath = self.paths[-1]["path"]
 
-        return firstPath.endpoint != lastPath.startpoint
+        return allclose(firstPath.startpoint, lastPath.endpoint)
 
     def get_point(self, s, evaluate=False):
-        if self.periodic:
+        if self.periodic and s > self.length:
             s = s % self.length
 
         for component in self.paths:
@@ -170,11 +194,11 @@ class ComposedPath:
                 return path.get_point(relative_s, evaluate=evaluate)
 
         raise Exception("Can't evaluate path on t = " + str(s) +
-                        "lower than 0 or greater than the length " +
+                        " lower than 0 or greater than the length " +
                         str(self.length))
 
     def get_tangent(self, s, evaluate=False):
-        if self.periodic:
+        if self.periodic and s > self.length:
             s = s % self.length
 
         for component in self.paths:
@@ -215,3 +239,27 @@ class ComposedPath:
                 yMax = curYMax
 
         return xMin, yMin, xMax, yMax
+
+    def add_path(self, path: SimplePath):
+        self.paths.append({
+            "path": path,
+            "relative_t0": self.t1,
+            "relative_t1": self.t1 + path.length
+        })
+        self.t1 = self.t1 + path.length
+        self.length = self.t1
+        self.lengthFloat = float(self.length.evalf())
+
+    def remove_path(self, index: int):
+        removedComponent = self.paths.pop(index)
+        removedLength = removedComponent["path"].length
+
+        for i in range(index, len(self.paths)):
+            self.paths[i]["relative_t0"] = \
+                self.paths[i]["relative_t0"] - removedLength
+            self.paths[i]["relative_t1"] = \
+                self.paths[i]["relative_t1"] - removedLength
+
+        self.t1 = self.t1 - removedLength
+        self.length = self.t1
+        self.lengthFloat = float(self.length.evalf())

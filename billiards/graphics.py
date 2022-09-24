@@ -1,63 +1,118 @@
+from typing import List
 from numpy import linspace, array, concatenate
-from math import ceil, pi
-from matplotlib.pyplot import figure, show
+from math import ceil, log, pi
+from matplotlib.pyplot import figure as plt_figure, show as plt_show
+from matplotlib import use as mpl_use
 
-from billiards.billiards import Billiard
+from billiards.billiards import Orbit
+from billiards.geometry import ComposedPath
 from billiards.time import sharedTimer as timer
+
+mpl_use("TkAgg")
 
 
 class GraphicsMatPlotLib:
-    def __init__(self, billiards: Billiard, renderPrecision=.1):
-        self.figure = figure()
+    def __init__(
+        self,
+        boundary: ComposedPath,
+        orbits: List[Orbit] = [],
+        renderPrecision=.1
+    ):
+        self.boundary = boundary
+        self.orbits = orbits
+        self.renderPrecision = renderPrecision
 
-        # Add table to figure
-        idPlotBoundary = timer.start_operation("plot_boundary")
-        numIntervals = ceil(billiards.boundary.lengthFloat / renderPrecision)
-        tValues = linspace(0, billiards.boundary.lengthFloat, numIntervals)
+    def plot(
+        self,
+        plotBoundary=True,
+        plotPhase=True,
+        fig=None
+    ):
+        if fig is None:
+            fig = plt_figure()
+        else:
+            fig.clf(True)
+        boundary = self.boundary
 
-        arrayX, arrayY = array([
-            billiards.boundary.get_point(t, evaluate=True) for t in tValues
-        ]).T
+        # Get boundary
+        boundaryPoints = []
+        if plotBoundary:
+            numIntervals = ceil(
+                boundary.lengthFloat / self.renderPrecision
+            )
+            if numIntervals != 0:
+                idPlotBoundary = timer.start_operation("evaluate_boundary")
 
-        ax = self.figure.add_subplot(121)
-        ax.axes.set_aspect('equal')
-        ax.plot(arrayX, arrayY)
-        timer.end_operation("plot_boundary", idPlotBoundary)
+                tValues = linspace(
+                    0, boundary.lengthFloat, numIntervals
+                )
 
-        # Init points
-        statesS = []
-        statesTheta = []
-        stateColor = []
-        idPlotPath = timer.start_operation("plot_paths")
-        for orbit in billiards.orbits:
-            p, = ax.plot(orbit.points["x"], orbit.points["y"])
-            statesS.append(orbit.points["t"])
-            statesTheta.append(orbit.points["theta"])
-            stateColor.append([p.get_color()] * len(orbit.points["t"]))
-        timer.end_operation("plot_paths", idPlotPath)
+                x, y = array([
+                    boundary.get_point(t, evaluate=True) for t in tValues
+                ]).T
+                boundaryPoints = [x, y]
 
-        # Plot orbits
-        idPlotOrbit = timer.start_operation("plot_orbit")
-        ax = self.figure.add_subplot(122)
-        ax.axes.set_aspect('equal')
-        ax.set_xlim([
-            float(billiards.boundary.t0.evalf()),
-            float(billiards.boundary.t1.evalf())
-        ])
-        ax.set_ylim([0, pi])
+                timer.end_operation("evaluate_boundary", idPlotBoundary)
 
-        tArray = concatenate(statesS)
-        thetaArray = concatenate(statesTheta)
-        colorArray = concatenate(stateColor)
+        # Get (orbit) points
+        phasePoints = [[], []]
+        trajectoryPoints = []
+        # directions = []
+        idPlotPath = timer.start_operation("evaluate_orbits")
+        for orbit in self.orbits:
+            if plotBoundary:
+                trajectoryPoints.append([orbit.points["x"], orbit.points["y"]])
+            if plotPhase:
+                phasePoints[0].append(orbit.points["t"])
+                phasePoints[1].append(orbit.points["theta"])
 
-        # This should be adjusted dynamically
-        markerSize = 1
+        timer.end_operation("evaluate_orbits", idPlotPath)
 
-        ax.scatter(tArray, thetaArray, s=markerSize, c=colorArray)
-        timer.end_operation("plot_orbit", idPlotOrbit)
+        # Actually plot
+        # Figure a better way to do this!
+        idPlotOrbit = timer.start_operation("plot_objects")
+        if plotBoundary and plotPhase:
+            axBoundary = fig.add_subplot(121)
+            axPhase = fig.add_subplot(122)
+        else:
+            axBoundary = axPhase = fig.add_subplot()
 
-    def show(self):
-        show()
+        colors = []
+        if plotBoundary:
+            axBoundary.set_aspect('equal')
+            if len(boundaryPoints) > 0:
+                axBoundary.plot(boundaryPoints[0], boundaryPoints[1])
+            for x, y in trajectoryPoints:
+                p, = axBoundary.plot(x, y)
+                colors.append([p.get_color()] * len(x))
 
-    def save(self, path: str):
-        self.figure.savefig(path)
+        if plotPhase:
+            axPhase.set_aspect('equal')
+            axPhase.set_xlim([
+                float(boundary.t0.evalf()),
+                float(boundary.t1.evalf())
+            ])
+            axPhase.set_ylim([0, pi])
+
+            if len(phasePoints[0]) > 0:
+                tArray = concatenate(phasePoints[0])
+                thetaArray = concatenate(phasePoints[1])
+                colorArray = None
+                if len(colors) > 0:
+                    colorArray = concatenate(colors)
+
+                # This should be adjusted dynamically
+                markerSize = 20 / max(log(len(tArray), 10), 1)
+
+                axPhase.scatter(tArray, thetaArray, s=markerSize, c=colorArray)
+
+        timer.end_operation("plot_objects", idPlotOrbit)
+
+        return fig
+
+    def show(figure):
+        plt_figure(figure.number)
+        plt_show()
+
+    def save(figure, path: str):
+        figure.savefig(path)
