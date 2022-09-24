@@ -3,9 +3,6 @@ from numpy import linspace, array, concatenate
 from math import ceil, log, pi
 from matplotlib.pyplot import figure as plt_figure, show as plt_show
 from matplotlib import use as mpl_use
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-
-from PySimpleGUI import Canvas
 
 from billiards.billiards import Orbit
 from billiards.geometry import ComposedPath
@@ -29,8 +26,6 @@ class GraphicsMatPlotLib:
         self,
         plotBoundary=True,
         plotPhase=True,
-        # Reconsider the next direction implementation
-        # plotNextDirection=False,
         fig=None
     ):
         if fig is None:
@@ -70,14 +65,6 @@ class GraphicsMatPlotLib:
             if plotPhase:
                 phasePoints[0].append(orbit.points["t"])
                 phasePoints[1].append(orbit.points["theta"])
-            # if plotNextDirection:
-            #     # Maybe this should be on geometry?
-            #     t, theta = orbit.currentCondition
-            #     point = boundary.get_point(t, evaluate=True)
-            #     dx, dy = boundary.get_tangent(t, evaluate=True)
-            #     vx = dx * cos(theta) - dy * sin(theta)
-            #     vy = dx * sin(theta) + dy * cos(theta)
-            #     directions.append([point, (vx, vy)])
 
         timer.end_operation("evaluate_orbits", idPlotPath)
 
@@ -98,9 +85,6 @@ class GraphicsMatPlotLib:
             for x, y in trajectoryPoints:
                 p, = axBoundary.plot(x, y)
                 colors.append([p.get_color()] * len(x))
-            # if plotNextDirection:
-            #     for p, d in directions:
-            #         axBoundary.arrow(p[0], p[1], d[0], d[1])
 
         if plotPhase:
             axPhase.set_aspect('equal')
@@ -132,11 +116,3 @@ class GraphicsMatPlotLib:
 
     def save(figure, path: str):
         figure.savefig(path)
-
-    def render_on_canvas(figure, canvas: Canvas):
-        figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
-        figure_canvas_agg.draw()
-        figure_canvas_agg.get_tk_widget().pack(
-            side="top", fill="both", expand=1
-        )
-        return figure_canvas_agg
