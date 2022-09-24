@@ -4,6 +4,8 @@ import PySimpleGUI as sg
 from billiards.billiards import Billiard
 from billiards.geometry import SimplePath, ComposedPath
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+
 from progress.bar import Bar
 
 from billiards.graphics import GraphicsMatPlotLib
@@ -325,9 +327,10 @@ def simulate(billiard: Billiard):
     window = sg.Window("Dynamical Billiards: Simulate", [
         [
             sg.Button("Iterate", key="iterate"),
-            sg.Button("Save", key="save"),
-            sg.Button("Open Image", key="open")
+            sg.Button("Save simulation", key="save")
         ],
+        [sg.HorizontalSeparator()],
+        [sg.Canvas(key="controlCanvas")],
         [
             sg.Graph((640, 480), (0, 0), (640, 480), key='canvas')
         ],
@@ -341,9 +344,9 @@ def simulate(billiard: Billiard):
         billiard.boundary, billiard.orbits
     )
     figure = graph.plot()
-    canvas = FigureCanvasTkAgg(figure, window['canvas'].Widget)
-    plot_widget = canvas.get_tk_widget()
-    plot_widget.grid(row=0, column=0)
+    draw_figure_w_toolbar(
+        window['canvas'].TKCanvas, figure, window['controlCanvas'].TKCanvas
+    )
 
     windowResponse = None
     while True:
@@ -376,10 +379,6 @@ def simulate(billiard: Billiard):
                 folder = os.path.join(dataFolder, answer)
                 billiard.save(folder)
                 sg.popup("Saved successfully!")
-
-        # Bug: After open, iterate doesn't work! Plot fails
-        elif event == "open":
-            GraphicsMatPlotLib.show(figure)
 
         elif event in (sg.WIN_CLOSED, "close"):
             windowResponse = CLOSE_WINDOW
@@ -452,9 +451,24 @@ def get_initial_condition_string(initialCondition: Tuple[float, float]):
     return str(initialCondition)
 
 
-def render_matplotlib_figure(canvas: sg.Canvas, figure):
-    figure_canvas_agg = FigureCanvasTkAgg(figure, canvas)
+class Toolbar(NavigationToolbar2Tk):
+    def __init__(self, *args, **kwargs):
+        super(Toolbar, self).__init__(*args, **kwargs)
 
+
+def draw_figure_w_toolbar(
+    canvas: sg.Canvas,
+    figure,
+    canvas_toolbar: sg.Canvas
+):
+    if canvas.children:
+        for child in canvas.winfo_children():
+            child.destroy()
+    if canvas_toolbar.children:
+        for child in canvas_toolbar.winfo_children():
+            child.destroy()
+    figure_canvas_agg = FigureCanvasTkAgg(figure, master=canvas)
     figure_canvas_agg.draw()
-    figure_canvas_agg.get_tk_widget().pack(side="top", fill="both", expand=1)
-    return figure_canvas_agg
+    toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
+    toolbar.update()
+    figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
