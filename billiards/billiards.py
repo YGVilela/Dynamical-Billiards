@@ -137,7 +137,6 @@ class Billiard:
 
     def load(folder: str):
         path = os.path.join(folder, "boundary.json")
-        print(path)
         dictionary = json.load(open(path))
         boundary = ComposedPath.from_json(dictionary)
 
