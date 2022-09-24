@@ -8,6 +8,9 @@ from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
+from billiards.time import sharedTimer
+
+from multiprocess import Process, Manager
 
 # welcome screen
 
@@ -327,10 +330,17 @@ def simulate(billiard: Billiard):
             sg.Button("Iterate", key="iterate"),
             sg.Button("Save simulation", key="save")
         ],
-        [sg.ProgressBar(100, size=(50, 10), key="progress")],
+        [
+            sg.Checkbox("Parallelize", key="parallel", enable_events=True)
+        ],
+        [
+            sg.Text("Threads"),
+            sg.In("2", key="threads", visible=False)
+        ],
         [sg.HorizontalSeparator()],
         [sg.Canvas(key="controlCanvas")],
         [
+            # Todo: change dimensions according to inputs!
             sg.Graph((640, 480), (0, 0), (640, 480), key='canvas')
         ],
         [
@@ -357,20 +367,22 @@ def simulate(billiard: Billiard):
             answer = sg.popup_get_text("How many iterations:")
             if answer is not None:
                 try:
-                    answerAsInt = int(answer)
+                    iterations = int(answer)
                 except BaseException as err:
                     sg.popup(err.__str__())
 
-                # Todo: Is there another way?
-                currentProgress = [0]
-                totalTicks = answerAsInt * len(billiard.orbits)
-                tickValue = 100 / totalTicks
+                # Todo: Figure a common way of showing the bar
+                if values["parallel"]:
+                    threads = int(values["threads"])
 
-                def cb():
-                    currentProgress[0] += tickValue
-                    window["progress"].update(currentProgress[0])
+                    idTimer = sharedTimer.start_operation("iterate_parallel")
+                    run_parallel(billiard, iterations, threads)
+                    sharedTimer.end_operation("iterate_parallel", idTimer)
 
-                billiard.iterate(iterations=answerAsInt, callback=cb)
+                else:
+                    idTimer = sharedTimer.start_operation("iterate_serial")
+                    run_serial(billiard, iterations)
+                    sharedTimer.end_operation("iterate_serial", idTimer)
 
                 figure = graph.plot(fig=figure)
                 figure.canvas.draw()
@@ -381,6 +393,9 @@ def simulate(billiard: Billiard):
                 folder = os.path.join(dataFolder, answer)
                 billiard.save(folder)
                 sg.popup("Saved successfully!")
+
+        elif event == "parallel":
+            window["threads"].update(visible=not window["threads"].visible)
 
         elif event in (sg.WIN_CLOSED, "close"):
             windowResponse = CLOSE_WINDOW
@@ -474,3 +489,61 @@ def draw_figure_w_toolbar(
     toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
     toolbar.update()
     figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
+
+
+def run_parallel(billiard: Billiard, iterations: int, threads: int):
+    manager = Manager()
+    queue = manager.Queue()
+
+    def cb():
+        queue.put(1)
+
+    def tick(queue, totalIter):
+        currentProgress = 0
+        window = sg.Window(
+            "Iterating...",
+            layout=[
+                [sg.ProgressBar(totalIter, size=(50, 10), key="progress")]
+            ],
+            finalize=True
+        )
+
+        while True:
+            queue.get()
+            currentProgress += 1
+            window["progress"].update(currentProgress)
+
+            if totalIter <= currentProgress:
+                break
+
+        window.close()
+
+    totalIter = iterations * len(billiard.orbits)
+    consumer = Process(
+        target=tick, args=[queue, totalIter]
+    )
+    consumer.start()
+
+    billiard.iterate_parallel(
+        iterations=iterations, callback=cb, poolSize=threads
+    )
+
+    consumer.join()
+
+
+def run_serial(billiard: Billiard, iterations: int):
+    totalIter = iterations * len(billiard.orbits)
+    window = sg.Window(
+        "Iterating...",
+        layout=[[sg.ProgressBar(totalIter, size=(50, 10), key="progress")]],
+        finalize=True
+    )
+
+    currentProgress = [0]
+
+    def cb():
+        currentProgress[0] += 1
+        window["progress"].update(currentProgress[0])
+
+    billiard.iterate(iterations=iterations, callback=cb)
+    window.close()

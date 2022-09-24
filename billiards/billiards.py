@@ -1,4 +1,5 @@
 import json
+from multiprocess import Pool
 import os
 from pathlib import Path
 from typing import Callable, List, Tuple
@@ -120,6 +121,31 @@ class Billiard:
 
                 if callback is not None:
                     callback()
+
+    def iterate_parallel(
+        self,
+        callback=None,
+        iterations=10,
+        poolSize=2
+    ):
+
+        def iterateOrbit(orbit: Orbit):
+            for _ in range(iterations):
+                idMap = timer.start_operation("iterate_orbit")
+                orbit.iterate()
+                timer.end_operation("iterate_orbit", idMap)
+
+                if callback is not None:
+                    callback()
+
+            return orbit
+
+        pool = Pool(poolSize)
+
+        res = pool.map(iterateOrbit, self.orbits)
+
+        for index in range(len(res)):
+            self.orbits[index] = res[index]
 
     def save(self, folder: str):
         # Saving boundary
