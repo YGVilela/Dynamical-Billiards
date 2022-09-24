@@ -6,8 +6,6 @@ from billiards.geometry import SimplePath, ComposedPath
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
-from progress.bar import Bar
-
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
 
@@ -329,6 +327,7 @@ def simulate(billiard: Billiard):
             sg.Button("Iterate", key="iterate"),
             sg.Button("Save simulation", key="save")
         ],
+        [sg.ProgressBar(100, size=(50, 10), key="progress")],
         [sg.HorizontalSeparator()],
         [sg.Canvas(key="controlCanvas")],
         [
@@ -362,13 +361,16 @@ def simulate(billiard: Billiard):
                 except BaseException as err:
                     sg.popup(err.__str__())
 
-                # Todo: How to report progress?
-                bar = Bar(
-                    'Iterating', suffix='%(percent)d%% - %(eta)ds',
-                    max=answerAsInt * len(billiard.orbits)
-                )
-                billiard.iterate(iterations=answerAsInt, callback=bar.next)
-                bar.finish()
+                # Todo: Is there another way?
+                currentProgress = [0]
+                totalTicks = answerAsInt * len(billiard.orbits)
+                tickValue = 100 / totalTicks
+
+                def cb():
+                    currentProgress[0] += tickValue
+                    window["progress"].update(currentProgress[0])
+
+                billiard.iterate(iterations=answerAsInt, callback=cb)
 
                 figure = graph.plot(fig=figure)
                 figure.canvas.draw()
