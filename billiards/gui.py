@@ -1,7 +1,7 @@
 import os
 from typing import Tuple
 import PySimpleGUI as sg
-from billiards.billiards import Billiard
+from billiards.billiards import Billiard, iterate_parallel, iterate_serial
 from billiards.geometry import SimplePath, ComposedPath
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
@@ -10,18 +10,16 @@ from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
 from billiards.time import sharedTimer
 
-from multiprocess import Process, Manager
-
-# welcome screen
-
 # Constants. Consider changing this...
-CLOSE_WINDOW = 0
-dataFolder = "data"
+constants = {
+    "CLOSE_WINDOW": 0,
+    "DataFolder": "data"
+}
 
-# Screens
 
+def welcome_window(dataFolder: str):
+    constants["DataFolder"] = dataFolder
 
-def welcome_window():
     layout = [
         [
             sg.Button("New Simulation", key="new"),
@@ -45,8 +43,6 @@ def welcome_window():
             break
 
     window.close()
-
-# Todo: Edit to be able to rename
 
 
 def edit_parametrization(boundary=None):
@@ -124,7 +120,7 @@ def edit_parametrization(boundary=None):
                 else:
                     billiard = Billiard(boundary)
                     nextResponse = edit_initial_conditions(billiard)
-                    if nextResponse == CLOSE_WINDOW:
+                    if nextResponse == constants["CLOSE_WINDOW"]:
                         windowResponse = nextResponse
                         break
             except BaseException as err:
@@ -177,7 +173,7 @@ def edit_parametrization(boundary=None):
             figure.canvas.draw()
 
         elif event == sg.WIN_CLOSED:
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -257,7 +253,7 @@ def edit_initial_conditions(billiard: Billiard):
         elif event == "next":
             window.hide()
             nextResponse = simulate(billiard)
-            if nextResponse == CLOSE_WINDOW:
+            if nextResponse == constants["CLOSE_WINDOW"]:
                 windowResponse = nextResponse
                 break
             window.un_hide()
@@ -316,7 +312,7 @@ def edit_initial_conditions(billiard: Billiard):
             window["thetaMax"].update(visible=not window["thetaMax"].visible)
 
         elif event == sg.WIN_CLOSED:
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -376,21 +372,22 @@ def simulate(billiard: Billiard):
                     threads = int(values["threads"])
 
                     idTimer = sharedTimer.start_operation("iterate_parallel")
-                    run_parallel(billiard, iterations, threads)
+                    iterate_parallel(billiard, iterations, threads, GUI=True)
                     sharedTimer.end_operation("iterate_parallel", idTimer)
 
                 else:
                     idTimer = sharedTimer.start_operation("iterate_serial")
-                    run_serial(billiard, iterations)
+                    iterate_serial(billiard, iterations, GUI=True)
                     sharedTimer.end_operation("iterate_serial", idTimer)
 
                 figure = graph.plot(fig=figure)
                 figure.canvas.draw()
 
         elif event == "save":
+            sg.popup_get_folder
             answer = sg.popup_get_text("Simulation name:")
             if answer is not None:
-                folder = os.path.join(dataFolder, answer)
+                folder = os.path.join(constants["DataFolder"], answer)
                 billiard.save(folder)
                 sg.popup("Saved successfully!")
 
@@ -398,7 +395,7 @@ def simulate(billiard: Billiard):
             window["threads"].update(visible=not window["threads"].visible)
 
         elif event in (sg.WIN_CLOSED, "close"):
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -406,7 +403,7 @@ def simulate(billiard: Billiard):
 
 
 def load_simulation():
-    existingSimulations = os.listdir(dataFolder)
+    existingSimulations = os.listdir(constants["DataFolder"])
 
     inputLayout = [
         [
@@ -437,18 +434,18 @@ def load_simulation():
 
         elif event == "next":
             selectedConditions = values["simulations"]
-            path = os.path.join(dataFolder, selectedConditions[0])
+            path = os.path.join(constants["DataFolder"], selectedConditions[0])
             billiard = Billiard.load(path)
 
             window.hide()
             nextResponse = simulate(billiard)
-            if nextResponse == CLOSE_WINDOW:
+            if nextResponse == constants["CLOSE_WINDOW"]:
                 windowResponse = nextResponse
                 break
             window.un_hide()
 
         elif event == sg.WIN_CLOSED:
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -489,61 +486,3 @@ def draw_figure_w_toolbar(
     toolbar = Toolbar(figure_canvas_agg, canvas_toolbar)
     toolbar.update()
     figure_canvas_agg.get_tk_widget().pack(side='right', fill='both', expand=1)
-
-
-def run_parallel(billiard: Billiard, iterations: int, threads: int):
-    manager = Manager()
-    queue = manager.Queue()
-
-    def cb():
-        queue.put(1)
-
-    def tick(queue, totalIter):
-        currentProgress = 0
-        window = sg.Window(
-            "Iterating...",
-            layout=[
-                [sg.ProgressBar(totalIter, size=(50, 10), key="progress")]
-            ],
-            finalize=True
-        )
-
-        while True:
-            queue.get()
-            currentProgress += 1
-            window["progress"].update(currentProgress)
-
-            if totalIter <= currentProgress:
-                break
-
-        window.close()
-
-    totalIter = iterations * len(billiard.orbits)
-    consumer = Process(
-        target=tick, args=[queue, totalIter]
-    )
-    consumer.start()
-
-    billiard.iterate_parallel(
-        iterations=iterations, callback=cb, poolSize=threads
-    )
-
-    consumer.join()
-
-
-def run_serial(billiard: Billiard, iterations: int):
-    totalIter = iterations * len(billiard.orbits)
-    window = sg.Window(
-        "Iterating...",
-        layout=[[sg.ProgressBar(totalIter, size=(50, 10), key="progress")]],
-        finalize=True
-    )
-
-    currentProgress = [0]
-
-    def cb():
-        currentProgress[0] += 1
-        window["progress"].update(currentProgress[0])
-
-    billiard.iterate(iterations=iterations, callback=cb)
-    window.close()

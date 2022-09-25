@@ -3,14 +3,23 @@ import json
 from random import uniform
 from typing import List, Tuple
 
-from billiards.geometry import PathParams
-
 from billiards.utils import flat_array, to_number
 
 
+class PathParams:
+    x: str
+    y: str
+    t0: str
+    t1: str
+
+    def __init__(self, dictionaire):
+        self.x = dictionaire["x"]
+        self.y = dictionaire["y"]
+        self.t0 = dictionaire["t0"]
+        self.t1 = dictionaire["t1"]
+
+
 class Input:
-    # title: str
-    # description: str
     paths: List[PathParams]
     initialConditions: List[Tuple[float]]
     iterations: int
@@ -19,11 +28,11 @@ class Input:
     saveImage: bool
     saveBilliard: str
     orbitsFolder: str
+    parallelize: bool
+    threads: int
 
     def __init__(self, path):
         params = json.load(open(path))
-        # self.title = params["title"]
-        # self.description = params["description"]
         self.paths = list(map(PathParams, params["paths"]))
         if "initialConditions" in params:
             conditionArray = params["initialConditions"]
@@ -48,6 +57,10 @@ class Input:
             self.orbitsFolder = params["orbitsFolder"]
         else:
             self.orbitsFolder = None
+
+        self.parallelize = "parallelize" in params and params["parallelize"]
+        if self.parallelize:
+            self.threads = params["threads"]
 
 
 def parse_conditions(dictionaire):

@@ -2,12 +2,11 @@ import os
 from pathlib import Path
 import sys
 from typing import List
-from billiards.billiards import Billiard
+from billiards.billiards import Billiard, iterate_parallel, iterate_serial
 from billiards.geometry import ComposedPath, SimplePath
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import Input, PathParams
 from billiards.time import sharedTimer
-from progress.bar import Bar
 
 
 def getBoundary(pathParams: List[PathParams]):
@@ -38,16 +37,14 @@ if __name__ == "__main__":
     )
 
     # Execute dynamics
-    bar = Bar(
-        'Iterating', suffix='%(percent)d%% - %(eta)ds',
-        max=parameters.iterations * len(billiard.orbits)
-    )
-    for index in range(0, parameters.iterations):
-        idIteration = sharedTimer.start_operation("iterate")
-        billiard.iterate(callback=bar.next)
-        sharedTimer.end_operation("iterate", idIteration)
-
-    bar.finish()
+    if parameters.parallelize:
+        idTimer = sharedTimer.start_operation("iterate_parallel")
+        iterate_parallel(billiard, parameters.iterations, parameters.threads)
+        sharedTimer.end_operation("iterate_parallel", idTimer)
+    else:
+        idTimer = sharedTimer.start_operation("iterate_serial")
+        iterate_serial(billiard, parameters.iterations)
+        sharedTimer.end_operation("iterate_serial", idTimer)
 
     # Save trajectories and orbit
     figure = None
