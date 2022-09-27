@@ -20,12 +20,12 @@ def get_objective_function(boundary: ComposedPath, phi0: float, theta0: float):
         r_y = y - y0
         # (v_x, v_y) is perpendicular to the ray
         # (x0, y0) com inclinação theta0 com a tangente
-        v_x = -(tangent_x0)*sin(theta0) - (tangent_y0)*cos(theta0)
-        v_y = -(tangent_y0)*sin(theta0) + (tangent_x0)*cos(theta0)
+        v_x = -(tangent_x0) * sin(theta0) - (tangent_y0) * cos(theta0)
+        v_y = -(tangent_y0) * sin(theta0) + (tangent_x0) * cos(theta0)
         drx = tangent_x
         dry = tangent_y
 
-        return r_x*v_x + r_y*v_y, drx*v_x + dry*v_y
+        return r_x * v_x + r_y * v_y, drx * v_x + dry * v_y
 
     return func
 
@@ -66,15 +66,15 @@ def make_billiard_map(
             theta1 = 0.0
             phi1 = phi0
             x_phi1, y_phi1 = boundary.get_point(phi1, evaluate=True)
-        if ((pi-acc < theta0) and (theta0 < pi + acc)):
+        if ((pi - acc < theta0) and (theta0 < pi + acc)):
             theta1 = pi
             phi1 = phi0
             x_phi1, y_phi1 = boundary.get_point(phi1, evaluate=True)
         else:
             phi1 = find_zero(
                 func,
-                phi0 + factor*acc,
-                phi0 + periodo - factor*acc,
+                phi0 + factor * acc,
+                phi0 + periodo - factor * acc,
                 acc=acc,
                 max_iter=max_iteracao,
                 method=method)
@@ -89,14 +89,15 @@ def make_billiard_map(
             r_y = y_phi1 - y_phi0
             t_x = dx_phi1
             t_y = dy_phi1
-            norma = pow(r_x*r_x + r_y*r_y, 1/2) * pow(t_x*t_x + t_y*t_y, 0.5)
+            norma = \
+                pow(r_x * r_x + r_y * r_y, .5) * pow(t_x * t_x + t_y * t_y, .5)
 
-            if ((r_x*t_x + r_y*t_y)/norma) > 1/2:
-                theta1 = asin((r_x*t_y - r_y*t_x)/norma)
-            elif ((r_x*t_x + r_y*t_y)/norma) < -1/2:
-                theta1 = pi - asin((r_x*t_y - r_y*t_x)/norma)
+            if ((r_x * t_x + r_y * t_y) / norma) > 1 / 2:
+                theta1 = asin((r_x * t_y - r_y * t_x) / norma)
+            elif ((r_x * t_x + r_y * t_y) / norma) < -1 / 2:
+                theta1 = pi - asin((r_x * t_y - r_y * t_x) / norma)
             else:
-                theta1 = acos((r_x*t_x + r_y*t_y)/norma)
+                theta1 = acos((r_x * t_x + r_y * t_y) / norma)
         return ((phi1, theta1), (x_phi1, y_phi1))
 
     return billiard_map

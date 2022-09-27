@@ -6,19 +6,6 @@ from numpy import allclose
 from billiards.time import sharedTimer as timer
 
 
-class PathParams:
-    x: str
-    y: str
-    t0: str
-    t1: str
-
-    def __init__(self, dictionaire):
-        self.x = dictionaire["x"]
-        self.y = dictionaire["y"]
-        self.t0 = dictionaire["t0"]
-        self.t1 = dictionaire["t1"]
-
-
 class SimplePath:
     def __init__(self, t0, t1, x, y):
         self.t0 = to_expr(t0)

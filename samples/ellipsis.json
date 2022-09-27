@@ -6,12 +6,14 @@
       "theta": "Random",
       "tRange": [0, "2*pi"],
       "thetaRange": [0, "pi"],
-      "instances": 2
+      "instances": 100
     }
   ],
-  "iterations": 2,
+  "iterations": 10,
   "method": "newton",
-  "show": false,
-  "saveImage": true,
-  "saveBilliard": false
+  "show": true,
+  "saveImage": false,
+  "saveBilliard": false,
+  "parallelize": false,
+  "threads": 10
 }

@@ -1,4 +1,5 @@
 import json
+from multiprocess import Pool, Process, Manager
 import os
 from pathlib import Path
 from typing import Callable, List, Tuple
@@ -6,6 +7,8 @@ from billiards.dynamics import make_billiard_map
 from billiards.geometry import ComposedPath
 from pandas import DataFrame, read_csv
 from billiards.time import sharedTimer as timer
+from PySimpleGUI import Window, ProgressBar
+from progress.bar import Bar
 
 
 class Orbit:
@@ -121,6 +124,31 @@ class Billiard:
                 if callback is not None:
                     callback()
 
+    def iterate_parallel(
+        self,
+        callback=None,
+        iterations=10,
+        poolSize=2
+    ):
+
+        def iterateOrbit(orbit: Orbit):
+            for _ in range(iterations):
+                idMap = timer.start_operation("iterate_orbit")
+                orbit.iterate()
+                timer.end_operation("iterate_orbit", idMap)
+
+                if callback is not None:
+                    callback()
+
+            return orbit
+
+        pool = Pool(poolSize)
+
+        res = pool.map(iterateOrbit, self.orbits)
+
+        for index in range(len(res)):
+            self.orbits[index] = res[index]
+
     def save(self, folder: str):
         # Saving boundary
         Path(folder).mkdir(exist_ok=True)
@@ -155,3 +183,91 @@ class Billiard:
 
     def remove_orbit(self, index):
         return self.orbits.pop(index)
+
+
+def iterate_serial(billiard: Billiard, iterations: int, GUI=False):
+    totalIter = iterations * len(billiard.orbits)
+    if GUI:
+        window = Window(
+            "Iterating...",
+            layout=[[ProgressBar(totalIter, size=(50, 10), key="progress")]],
+            finalize=True
+        )
+    else:
+        bar = Bar(
+            'Iterating', suffix='%(percent)d%% - %(eta)ds',
+            max=totalIter
+        )
+
+    currentProgress = [0]
+
+    def cb():
+        if GUI:
+            currentProgress[0] += 1
+            window["progress"].update(currentProgress[0])
+        else:
+            bar.next()
+
+    billiard.iterate(iterations=iterations, callback=cb)
+
+    if GUI:
+        window.close()
+    else:
+        bar.finish()
+
+
+def iterate_parallel(
+    billiard: Billiard,
+    iterations: int,
+    threads: int,
+    GUI=False
+):
+    manager = Manager()
+    queue = manager.Queue()
+
+    def cb():
+        queue.put(1)
+
+    def tick(queue, totalIter):
+        currentProgress = 0
+        if GUI:
+            window = Window(
+                "Iterating...",
+                layout=[
+                    [ProgressBar(totalIter, size=(50, 10), key="progress")]
+                ],
+                finalize=True
+            )
+        else:
+            bar = Bar(
+                'Iterating', suffix='%(percent)d%% - %(eta)ds',
+                max=totalIter
+            )
+
+        while True:
+            queue.get()
+            currentProgress += 1
+            if GUI:
+                window["progress"].update(currentProgress)
+            else:
+                bar.next()
+
+            if totalIter <= currentProgress:
+                break
+
+        if GUI:
+            window.close()
+        else:
+            bar.finish()
+
+    totalIter = iterations * len(billiard.orbits)
+    consumer = Process(
+        target=tick, args=[queue, totalIter]
+    )
+    consumer.start()
+
+    billiard.iterate_parallel(
+        iterations=iterations, callback=cb, poolSize=threads
+    )
+
+    consumer.join()

@@ -1,24 +1,25 @@
 import os
 from typing import Tuple
 import PySimpleGUI as sg
-from billiards.billiards import Billiard
+from billiards.billiards import Billiard, iterate_parallel, iterate_serial
 from billiards.geometry import SimplePath, ComposedPath
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
-
-# welcome screen
+from billiards.time import sharedTimer
 
 # Constants. Consider changing this...
-CLOSE_WINDOW = 0
-dataFolder = "data"
+constants = {
+    "CLOSE_WINDOW": 0,
+    "DataFolder": "data"
+}
 
-# Screens
 
+def welcome_window(dataFolder: str):
+    constants["DataFolder"] = dataFolder
 
-def welcome_window():
     layout = [
         [
             sg.Button("New Simulation", key="new"),
@@ -42,8 +43,6 @@ def welcome_window():
             break
 
     window.close()
-
-# Todo: Edit to be able to rename
 
 
 def edit_parametrization(boundary=None):
@@ -121,7 +120,7 @@ def edit_parametrization(boundary=None):
                 else:
                     billiard = Billiard(boundary)
                     nextResponse = edit_initial_conditions(billiard)
-                    if nextResponse == CLOSE_WINDOW:
+                    if nextResponse == constants["CLOSE_WINDOW"]:
                         windowResponse = nextResponse
                         break
             except BaseException as err:
@@ -174,7 +173,7 @@ def edit_parametrization(boundary=None):
             figure.canvas.draw()
 
         elif event == sg.WIN_CLOSED:
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -254,7 +253,7 @@ def edit_initial_conditions(billiard: Billiard):
         elif event == "next":
             window.hide()
             nextResponse = simulate(billiard)
-            if nextResponse == CLOSE_WINDOW:
+            if nextResponse == constants["CLOSE_WINDOW"]:
                 windowResponse = nextResponse
                 break
             window.un_hide()
@@ -313,7 +312,7 @@ def edit_initial_conditions(billiard: Billiard):
             window["thetaMax"].update(visible=not window["thetaMax"].visible)
 
         elif event == sg.WIN_CLOSED:
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -327,10 +326,17 @@ def simulate(billiard: Billiard):
             sg.Button("Iterate", key="iterate"),
             sg.Button("Save simulation", key="save")
         ],
-        [sg.ProgressBar(100, size=(50, 10), key="progress")],
+        [
+            sg.Checkbox("Parallelize", key="parallel", enable_events=True)
+        ],
+        [
+            sg.Text("Threads"),
+            sg.In("2", key="threads", visible=False)
+        ],
         [sg.HorizontalSeparator()],
         [sg.Canvas(key="controlCanvas")],
         [
+            # Todo: change dimensions according to inputs!
             sg.Graph((640, 480), (0, 0), (640, 480), key='canvas')
         ],
         [
@@ -357,33 +363,39 @@ def simulate(billiard: Billiard):
             answer = sg.popup_get_text("How many iterations:")
             if answer is not None:
                 try:
-                    answerAsInt = int(answer)
+                    iterations = int(answer)
                 except BaseException as err:
                     sg.popup(err.__str__())
 
-                # Todo: Is there another way?
-                currentProgress = [0]
-                totalTicks = answerAsInt * len(billiard.orbits)
-                tickValue = 100 / totalTicks
+                # Todo: Figure a common way of showing the bar
+                if values["parallel"]:
+                    threads = int(values["threads"])
 
-                def cb():
-                    currentProgress[0] += tickValue
-                    window["progress"].update(currentProgress[0])
+                    idTimer = sharedTimer.start_operation("iterate_parallel")
+                    iterate_parallel(billiard, iterations, threads, GUI=True)
+                    sharedTimer.end_operation("iterate_parallel", idTimer)
 
-                billiard.iterate(iterations=answerAsInt, callback=cb)
+                else:
+                    idTimer = sharedTimer.start_operation("iterate_serial")
+                    iterate_serial(billiard, iterations, GUI=True)
+                    sharedTimer.end_operation("iterate_serial", idTimer)
 
                 figure = graph.plot(fig=figure)
                 figure.canvas.draw()
 
         elif event == "save":
+            sg.popup_get_folder
             answer = sg.popup_get_text("Simulation name:")
             if answer is not None:
-                folder = os.path.join(dataFolder, answer)
+                folder = os.path.join(constants["DataFolder"], answer)
                 billiard.save(folder)
                 sg.popup("Saved successfully!")
 
+        elif event == "parallel":
+            window["threads"].update(visible=not window["threads"].visible)
+
         elif event in (sg.WIN_CLOSED, "close"):
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
@@ -391,7 +403,7 @@ def simulate(billiard: Billiard):
 
 
 def load_simulation():
-    existingSimulations = os.listdir(dataFolder)
+    existingSimulations = os.listdir(constants["DataFolder"])
 
     inputLayout = [
         [
@@ -422,18 +434,18 @@ def load_simulation():
 
         elif event == "next":
             selectedConditions = values["simulations"]
-            path = os.path.join(dataFolder, selectedConditions[0])
+            path = os.path.join(constants["DataFolder"], selectedConditions[0])
             billiard = Billiard.load(path)
 
             window.hide()
             nextResponse = simulate(billiard)
-            if nextResponse == CLOSE_WINDOW:
+            if nextResponse == constants["CLOSE_WINDOW"]:
                 windowResponse = nextResponse
                 break
             window.un_hide()
 
         elif event == sg.WIN_CLOSED:
-            windowResponse = CLOSE_WINDOW
+            windowResponse = constants["CLOSE_WINDOW"]
             break
 
     window.close()
