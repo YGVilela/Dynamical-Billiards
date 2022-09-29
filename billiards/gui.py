@@ -1,3 +1,4 @@
+import json
 import os
 from typing import Tuple
 import PySimpleGUI as sg
@@ -55,6 +56,9 @@ def edit_parametrization(boundary=None):
     }
 
     inputLayout = [
+        [
+            sg.Button("Load Boundary", key="load")
+        ],
         [
             sg.Text("X Parametrization"),
             sg.In(size=(25, 1), key="paramX")
@@ -127,6 +131,22 @@ def edit_parametrization(boundary=None):
                 sg.popup(err.__str__())
 
             window.un_hide()
+
+        elif event == "load":
+            jsonFile = sg.popup_get_file("Sellect the boundary json:")
+            if jsonFile is not None:
+                dictionary = json.load(open(jsonFile))
+                boundary = ComposedPath.from_json(dictionary)
+
+                pathDict = {
+                    get_path_string(component["path"]): index
+                    for index, component in enumerate(boundary.paths)
+                }
+                window["parts"].update(pathDict)
+                figure = GraphicsMatPlotLib(boundary).plot(
+                    plotPhase=False, fig=figure
+                )
+                figure.canvas.draw()
 
         elif event == "add":
             try:
@@ -320,10 +340,20 @@ def edit_initial_conditions(billiard: Billiard):
 
 
 def simulate(billiard: Billiard):
+    conditionDict = {
+        get_initial_condition_string(orbit.initialCondition): index
+        for index, orbit in enumerate(billiard.orbits)
+    }
 
-    window = sg.Window("Dynamical Billiards: Simulate", [
+    inputLayout = [
         [
-            sg.Button("Iterate", key="iterate"),
+            sg.Text("Iterations"),
+            sg.In("1", size=(5, 1), key="iterations")
+        ],
+        [
+            sg.Button("Iterate", key="iterate")
+        ],
+        [
             sg.Button("Save simulation", key="save")
         ],
         [
@@ -331,13 +361,40 @@ def simulate(billiard: Billiard):
         ],
         [
             sg.Text("Threads"),
-            sg.In("2", key="threads", visible=False)
+            sg.In("2", size=(5, 1), key="threads", visible=False)
         ],
-        [sg.HorizontalSeparator()],
+        [
+            sg.Button("Plot All Orbits", key="plotOrbit"),
+            sg.Button("Plot All Trajectories", key="plotTrajectory")
+        ],
+        [
+            sg.Button("Preview Selected Orbits & Trajectories", key="preview")
+        ],
+        [
+            sg.Button("Select All", key="selectAll"),
+            sg.Button("Clear Selection", key="clearSelection")
+        ],
+        [
+            sg.Listbox(
+                values=list(conditionDict.keys()), size=(40, 20),
+                key="conditions", select_mode=sg.LISTBOX_SELECT_MODE_MULTIPLE
+            )
+        ]
+    ]
+
+    plotLayout = [
         [sg.Canvas(key="controlCanvas")],
         [
             # Todo: change dimensions according to inputs!
             sg.Graph((640, 480), (0, 0), (640, 480), key='canvas')
+        ]
+    ]
+
+    window = sg.Window("Dynamical Billiards: Simulate", [
+        [
+            sg.Column(inputLayout),
+            sg.VerticalSeparator(),
+            sg.Column(plotLayout)
         ],
         [
             sg.Button("Back", key="back"),
@@ -348,7 +405,7 @@ def simulate(billiard: Billiard):
     graph = GraphicsMatPlotLib(
         billiard.boundary, billiard.orbits
     )
-    figure = graph.plot()
+    figure = graph.plot(orbitIndexes=[])
     draw_figure_w_toolbar(
         window['canvas'].TKCanvas, figure, window['controlCanvas'].TKCanvas
     )
@@ -360,28 +417,25 @@ def simulate(billiard: Billiard):
             break
 
         elif event == "iterate":
-            answer = sg.popup_get_text("How many iterations:")
-            if answer is not None:
-                try:
-                    iterations = int(answer)
-                except BaseException as err:
-                    sg.popup(err.__str__())
+            # Todo: Figure out a way to disable without minimizing
+            window.disable()
 
-                # Todo: Figure a common way of showing the bar
-                if values["parallel"]:
-                    threads = int(values["threads"])
+            iterations = int(values["iterations"])
 
-                    idTimer = sharedTimer.start_operation("iterate_parallel")
-                    iterate_parallel(billiard, iterations, threads, GUI=True)
-                    sharedTimer.end_operation("iterate_parallel", idTimer)
+            # Todo: Figure a common way of showing the bar
+            if values["parallel"]:
+                threads = int(values["threads"])
 
-                else:
-                    idTimer = sharedTimer.start_operation("iterate_serial")
-                    iterate_serial(billiard, iterations, GUI=True)
-                    sharedTimer.end_operation("iterate_serial", idTimer)
+                idTimer = sharedTimer.start_operation("iterate_parallel")
+                iterate_parallel(billiard, iterations, threads, GUI=True)
+                sharedTimer.end_operation("iterate_parallel", idTimer)
 
-                figure = graph.plot(fig=figure)
-                figure.canvas.draw()
+            else:
+                idTimer = sharedTimer.start_operation("iterate_serial")
+                iterate_serial(billiard, iterations, GUI=True)
+                sharedTimer.end_operation("iterate_serial", idTimer)
+
+            window.enable()
 
         elif event == "save":
             sg.popup_get_folder
@@ -393,6 +447,34 @@ def simulate(billiard: Billiard):
 
         elif event == "parallel":
             window["threads"].update(visible=not window["threads"].visible)
+
+        elif event == "plotTrajectory":
+            plotFigure = graph.plot(plotBoundary=True, plotPhase=False)
+            plotFigure.show()
+
+        elif event == "plotOrbit":
+            plotFigure = graph.plot(plotBoundary=False, plotPhase=True)
+            plotFigure.show()
+
+        elif event == "preview":
+            selectedConditions = values["conditions"]
+            orbitIndexes = [
+                conditionDict[conditionStr]
+                for conditionStr in selectedConditions
+            ]
+
+            figure = graph.plot(orbitIndexes=orbitIndexes, fig=figure)
+            draw_figure_w_toolbar(
+                window['canvas'].TKCanvas,
+                figure, window['controlCanvas'].TKCanvas
+            )
+
+        elif event == "selectAll":
+            indexes = list(range(len(billiard.orbits)))
+            window["conditions"].update(set_to_index=indexes)
+
+        elif event == "clearSelection":
+            window["conditions"].update(set_to_index=[])
 
         elif event in (sg.WIN_CLOSED, "close"):
             windowResponse = constants["CLOSE_WINDOW"]
