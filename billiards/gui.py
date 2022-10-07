@@ -1,3 +1,4 @@
+from ast import literal_eval
 import json
 import os
 from typing import Tuple
@@ -6,6 +7,7 @@ from billiards.billiards import Billiard, iterate_parallel, iterate_serial
 from billiards.geometry import SimplePath, ComposedPath
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
+from sympy import parse_expr
 
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
@@ -46,41 +48,103 @@ def welcome_window(dataFolder: str):
     window.close()
 
 
+def parametrization_input(currentParametrization: SimplePath = None):
+    defaultX = None
+    defaultY = None
+    defaultT0 = None
+    defaultT1 = None
+
+    newPath = None
+    pathName = None
+
+    if currentParametrization is not None:
+        defaultX = str(currentParametrization.expressionX)
+        defaultY = str(currentParametrization.expressionY)
+        defaultT0 = str(currentParametrization.t0)
+        defaultT1 = str(currentParametrization.t1)
+
+    layout = [
+        [
+            sg.Text("X Parametrization"),
+            sg.In(default_text=defaultX, size=(25, 1), key="paramX")
+        ],
+        [
+            sg.Text("Y Parametrization"),
+            sg.In(default_text=defaultY, size=(25, 1), key="paramY")
+        ],
+        [
+            sg.Text("t0"),
+            sg.In(default_text=defaultT0, size=(8, 1), key="t0"),
+            sg.Text("t1"),
+            sg.In(default_text=defaultT1, size=(8, 1), key="t1")
+        ],
+        [
+            sg.Button("Cancel", key="cancel"),
+            sg.Button("Ok", key="ok")
+        ]
+    ]
+
+    window = sg.Window("Dynamical Billiards: Boundary Parametrization",
+                       layout, finalize=True
+                       )
+
+    while True:
+        event, values = window.read()
+
+        if event == "ok":
+            try:
+                newPath = SimplePath(
+                    values["t0"],
+                    values["t1"],
+                    values["paramX"],
+                    values["paramY"]
+                )
+                pathName = get_path_string(newPath)
+
+            except BaseException as err:
+                sg.popup(err.__str__())
+                continue
+
+        elif event in (sg.WIN_CLOSED, "cancel"):
+            break
+
+    window.close()
+    return newPath, pathName
+
+
 def edit_parametrization(boundary=None):
     if boundary is None:
         boundary = ComposedPath()
 
-    pathDict = {
-        get_path_string(component["path"]): index
-        for index, component in enumerate(boundary.paths)
-    }
+    valuesList = [
+        get_path_string(component["path"])
+        for component in boundary.paths
+    ]
+    pathSet = set(valuesList)
 
     inputLayout = [
         [
-            sg.Button("Load Boundary", key="load")
+            sg.In(visible=False, key="saveBoundary", enable_events=True),
+            sg.In(visible=False, key="loadBoundary", enable_events=True)
         ],
         [
-            sg.Text("X Parametrization"),
-            sg.In(size=(25, 1), key="paramX")
-        ],
-        [
-            sg.Text("Y Parametrization"),
-            sg.In(size=(25, 1), key="paramY")
-        ],
-        [
-            sg.Text("t0"),
-            sg.In(size=(8, 1), key="t0"),
-            sg.Text("t1"),
-            sg.In(size=(8, 1), key="t1")
+            sg.FileSaveAs("Save Boundary", target="saveBoundary"),
+            sg.FileBrowse("Load Boundary", target="loadBoundary",
+                          enable_events=True)
         ],
         [
             sg.Button("Add Parametrization", key="add"),
+        ],
+        [
+            sg.Button("Edit Parametrization", key="edit")
+        ],
+        [
             sg.Button("Remove Parametrization", key="remove")
         ],
         [
             sg.Listbox(
-                values=list(pathDict.keys()), size=(40, 20),
-                key="parts", select_mode=sg.LISTBOX_SELECT_MODE_MULTIPLE
+                values=valuesList, size=(40, 20),
+                key="parts", select_mode=sg.LISTBOX_SELECT_MODE_SINGLE
             )
         ]
 
@@ -132,44 +196,44 @@ def edit_parametrization(boundary=None):
 
             window.un_hide()
 
-        elif event == "load":
-            jsonFile = sg.popup_get_file("Sellect the boundary json:")
-            if jsonFile is not None:
-                dictionary = json.load(open(jsonFile))
-                boundary = ComposedPath.from_json(dictionary)
+        elif event == "saveBoundary":
+            savePath = values["saveBoundary"]
+            print("saving", savePath)
+            boundaryJson = boundary.to_json()
+            with open(savePath, 'w', encoding='utf-8') as f:
+                json.dump(boundaryJson, f, ensure_ascii=False, indent=4)
 
-                pathDict = {
-                    get_path_string(component["path"]): index
-                    for index, component in enumerate(boundary.paths)
-                }
-                window["parts"].update(pathDict)
-                figure = GraphicsMatPlotLib(boundary).plot(
-                    plotPhase=False, fig=figure
-                )
-                figure.canvas.draw()
+        elif event == "loadBoundary":
+            loadPath = values["loadBoundary"]
+            print("loading", loadPath)
+            dictionary = json.load(open(loadPath))
+            boundary = ComposedPath.from_json(dictionary)
+
+            valuesList = [
+                get_path_string(component["path"])
+                for component in boundary.paths
+            ]
+            pathSet = set(valuesList)
+
+            window["parts"].update(valuesList)
+            figure = GraphicsMatPlotLib(boundary).plot(
+                plotPhase=False, fig=figure
+            )
+            figure.canvas.draw()
 
         elif event == "add":
-            try:
-                newPath = SimplePath(
-                    values["t0"],
-                    values["t1"],
-                    values["paramX"],
-                    values["paramY"]
-                )
-                pathName = get_path_string(newPath)
-
-            except BaseException as err:
-                sg.popup(err.__str__())
+            newPath, pathName = parametrization_input()
+            if newPath is None:
+                continue
 
             # Todo: check properly!
-            if pathName in pathDict:
+            if pathName in pathSet:
                 sg.popup("Path already in boundary!")
             else:
                 boundary.add_path(newPath)
-                curValues = list(pathDict.keys())
-                pathDict[pathName] = len(curValues)
-                curValues.append(pathName)
-                window["parts"].update(curValues)
+                pathSet.add(pathName)
+                valuesList.append(pathName)
+                window["parts"].update(valuesList)
 
                 figure = GraphicsMatPlotLib(boundary).plot(
                     plotPhase=False, fig=figure
@@ -177,20 +241,48 @@ def edit_parametrization(boundary=None):
                 figure.canvas.draw()
 
         elif event == "remove":
-            selectedPaths = values["parts"]
-            for pathString in selectedPaths:
-                pathIndex = pathDict[pathString]
-                del pathDict[pathString]
-                boundary.remove_path(pathIndex)
-                for key in pathDict:
-                    if pathDict[key] > pathIndex:
-                        pathDict[key] -= 1
+            indexes = window["parts"].GetIndexes()
+            if len(indexes) == 0:
+                continue
 
-            window["parts"].update(list(pathDict.keys()))
+            pathIndex = indexes[0]
+            boundary.remove_path(pathIndex)
+
+            removedStr = valuesList.pop(pathIndex)
+            pathSet.remove(removedStr)
+            window["parts"].update(valuesList)
             figure = GraphicsMatPlotLib(boundary).plot(
                 plotPhase=False, fig=figure
             )
             figure.canvas.draw()
+
+        elif event == "edit":
+            indexes = window["parts"].GetIndexes()
+            if len(indexes) == 0:
+                continue
+
+            pathIndex = indexes[0]
+            currentPath = boundary.paths[pathIndex]["path"]
+            newPath, pathName = parametrization_input(currentPath)
+
+            if newPath is None:
+                continue
+
+            if pathName in pathSet:
+                sg.popup("Path already in boundary!")
+            else:
+                boundary.update_path(pathIndex, newPath)
+
+                pathSet.remove(valuesList[pathIndex])
+                pathSet.add(pathName)
+
+                valuesList[pathIndex] = pathName
+                window["parts"].update(valuesList)
+
+                figure = GraphicsMatPlotLib(boundary).plot(
+                    plotPhase=False, fig=figure
+                )
+                figure.canvas.draw()
 
         elif event == sg.WIN_CLOSED:
             windowResponse = constants["CLOSE_WINDOW"]
@@ -340,44 +432,42 @@ def edit_initial_conditions(billiard: Billiard):
 
 
 def simulate(billiard: Billiard):
-    conditionDict = {
-        get_initial_condition_string(orbit.initialCondition): index
-        for index, orbit in enumerate(billiard.orbits)
-    }
+    listValues = [
+        get_initial_condition_string(orbit.initialCondition)
+        for orbit in billiard.orbits
+    ]
 
     inputLayout = [
         [
-            sg.Text("Iterations"),
-            sg.In("1", size=(5, 1), key="iterations")
+            sg.In(visible=False, enable_events=True, key="saveSimulation"),
+            sg.FileSaveAs("Save simulation", target="saveSimulation")
         ],
         [
+            sg.Text("Iterations"),
+            sg.In("1", size=(5, 1), key="iterations"),
             sg.Button("Iterate", key="iterate")
         ],
         [
-            sg.Button("Save simulation", key="save")
-        ],
-        [
-            sg.Checkbox("Parallelize", key="parallel", enable_events=True)
-        ],
-        [
+            sg.Checkbox("Parallelize", key="parallel", enable_events=True),
             sg.Text("Threads"),
             sg.In("2", size=(5, 1), key="threads", visible=False)
         ],
         [
-            sg.Button("Plot All Orbits", key="plotOrbit"),
-            sg.Button("Plot All Trajectories", key="plotTrajectory")
+            sg.Button("Plot Orbits", key="plotOrbit"),
+            sg.Button("Plot Trajectories", key="plotTrajectory")
         ],
         [
-            sg.Button("Preview Selected Orbits & Trajectories", key="preview")
+            sg.Button("Preview Orbits & Trajectories", key="preview")
         ],
         [
             sg.Button("Select All", key="selectAll"),
+            sg.Button("Select In Range", key="filterSelection"),
             sg.Button("Clear Selection", key="clearSelection")
         ],
         [
             sg.Listbox(
-                values=list(conditionDict.keys()), size=(40, 20),
-                key="conditions", select_mode=sg.LISTBOX_SELECT_MODE_MULTIPLE
+                listValues, size=(40, 20), key="conditions",
+                select_mode=sg.LISTBOX_SELECT_MODE_MULTIPLE
             )
         ]
     ]
@@ -437,31 +527,34 @@ def simulate(billiard: Billiard):
 
             window.enable()
 
-        elif event == "save":
-            sg.popup_get_folder
-            answer = sg.popup_get_text("Simulation name:")
-            if answer is not None:
-                folder = os.path.join(constants["DataFolder"], answer)
-                billiard.save(folder)
-                sg.popup("Saved successfully!")
+        elif event == "saveSimulation":
+            folder = values["saveSimulation"]
+            billiard.save(folder)
+            sg.popup("Saved successfully!")
 
         elif event == "parallel":
             window["threads"].update(visible=not window["threads"].visible)
 
         elif event == "plotTrajectory":
-            plotFigure = graph.plot(plotBoundary=True, plotPhase=False)
+            orbitIndexes = window["conditions"].GetIndexes()
+
+            plotFigure = graph.plot(
+                orbitIndexes=orbitIndexes,
+                plotBoundary=True, plotPhase=False
+            )
             plotFigure.show()
 
         elif event == "plotOrbit":
-            plotFigure = graph.plot(plotBoundary=False, plotPhase=True)
+            orbitIndexes = window["conditions"].GetIndexes()
+
+            plotFigure = graph.plot(
+                orbitIndexes=orbitIndexes,
+                plotBoundary=False, plotPhase=True
+            )
             plotFigure.show()
 
         elif event == "preview":
-            selectedConditions = values["conditions"]
-            orbitIndexes = [
-                conditionDict[conditionStr]
-                for conditionStr in selectedConditions
-            ]
+            orbitIndexes = window["conditions"].GetIndexes()
 
             figure = graph.plot(orbitIndexes=orbitIndexes, fig=figure)
             draw_figure_w_toolbar(
@@ -470,11 +563,32 @@ def simulate(billiard: Billiard):
             )
 
         elif event == "selectAll":
-            indexes = list(range(len(billiard.orbits)))
-            window["conditions"].update(set_to_index=indexes)
+            window["conditions"].update(
+                set_to_index=list(range(len(listValues)))
+            )
 
         elif event == "clearSelection":
             window["conditions"].update(set_to_index=[])
+
+        elif event == "filterSelection":
+            tFilter, thetaFilter = get_filter(billiard.boundary.length)
+            if tFilter is None or thetaFilter is None:
+                continue
+
+            def filterFunc(initialConditionStr):
+                t, theta = str_to_initial_condition(initialConditionStr)
+                tInRange = tFilter[0] <= t <= tFilter[1]
+                thetaInRange = thetaFilter[0] <= theta <= thetaFilter[1]
+
+                return tInRange and thetaInRange
+
+            selectedIndexes = [
+                index
+                for index in range(len(listValues))
+                if filterFunc(listValues[index])
+            ]
+
+            window["conditions"].update(set_to_index=selectedIndexes)
 
         elif event in (sg.WIN_CLOSED, "close"):
             windowResponse = constants["CLOSE_WINDOW"]
@@ -482,6 +596,57 @@ def simulate(billiard: Billiard):
 
     window.close()
     return windowResponse
+
+
+def get_filter(boundaryLength):
+    window = sg.Window("Select the filter", [
+        [
+            sg.Text("t between"),
+            sg.In("0", key="tMin", size=(7, 1)),
+            sg.Text("and"),
+            sg.In(str(boundaryLength), key="tMax", size=(7, 1))
+        ],
+        [
+            sg.Text("theta between"),
+            sg.In("0", key="thetaMin", size=(7, 1)),
+            sg.Text("and"),
+            sg.In("pi", key="thetaMax", size=(7, 1))
+        ],
+        [
+            sg.Button("Filter", key="filter"),
+            sg.Button("Cancel", key="cancel")
+        ]
+    ])
+
+    tRange = None
+    thetaRange = None
+    while True:
+        event, values = window.read()
+
+        if event == "filter":
+            tMinExpr = values["tMin"]
+            tMaxExpr = values["tMax"]
+            thetaMinExpr = values["thetaMin"]
+            thetaMaxExpr = values["thetaMax"]
+
+            try:
+                tMin = float(parse_expr(tMinExpr).evalf())
+                tMax = float(parse_expr(tMaxExpr).evalf())
+                thetaMin = float(parse_expr(thetaMinExpr).evalf())
+                thetaMax = float(parse_expr(thetaMaxExpr).evalf())
+
+                tRange = (tMin, tMax)
+                thetaRange = (thetaMin, thetaMax)
+                break
+            except BaseException as err:
+                sg.popup(err.__str__())
+
+        elif event in (sg.WIN_CLOSED, "cancel"):
+            break
+
+    window.close()
+
+    return tRange, thetaRange
 
 
 def load_simulation():
@@ -545,6 +710,10 @@ def get_path_string(path: SimplePath):
 
 def get_initial_condition_string(initialCondition: Tuple[float, float]):
     return str(initialCondition)
+
+
+def str_to_initial_condition(initialConditionStr):
+    return literal_eval(initialConditionStr)
 
 
 class Toolbar(NavigationToolbar2Tk):

@@ -250,3 +250,20 @@ class ComposedPath:
         self.t1 = self.t1 - removedLength
         self.length = self.t1
         self.lengthFloat = float(self.length.evalf())
+
+    def update_path(self, index: int, newPath: SimplePath):
+        oldPath = self.paths[index]["path"]
+        lengthDifference = newPath.length - oldPath.length
+        self.paths[index]["path"] = newPath
+        self.paths[index]["relative_t1"] = \
+            self.paths[index]["relative_t1"] + lengthDifference
+
+        for i in range(index + 1, len(self.paths)):
+            self.paths[i]["relative_t0"] = \
+                self.paths[i]["relative_t0"] + lengthDifference
+            self.paths[i]["relative_t1"] = \
+                self.paths[i]["relative_t1"] + lengthDifference
+
+        self.t1 = self.t1 + lengthDifference
+        self.length = self.t1
+        self.lengthFloat = float(self.length.evalf())
