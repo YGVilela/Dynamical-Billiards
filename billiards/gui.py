@@ -100,6 +100,7 @@ def parametrization_input(currentParametrization: SimplePath = None):
                     values["paramY"]
                 )
                 pathName = get_path_string(newPath)
+                break
 
             except BaseException as err:
                 sg.popup(err.__str__())
@@ -132,14 +133,11 @@ def edit_parametrization(boundary=None):
             sg.FileBrowse("Load Boundary", target="loadBoundary",
                           enable_events=True)
         ],
+        [sg.HorizontalSeparator()],
         [
-            sg.Button("Add Parametrization", key="add"),
-        ],
-        [
-            sg.Button("Edit Parametrization", key="edit")
-        ],
-        [
-            sg.Button("Remove Parametrization", key="remove")
+            sg.Button("Add", key="add"),
+            sg.Button("Edit", key="edit"),
+            sg.Button("Remove", key="remove")
         ],
         [
             sg.Listbox(
