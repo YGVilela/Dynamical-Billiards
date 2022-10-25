@@ -429,7 +429,7 @@ def edit_initial_conditions(billiard: Billiard):
     return windowResponse
 
 
-def simulate(billiard: Billiard):
+def simulate(billiard: Billiard, name: str = "unnamed"):
     listValues = [
         get_initial_condition_string(orbit.initialCondition)
         for orbit in billiard.orbits
@@ -437,8 +437,7 @@ def simulate(billiard: Billiard):
 
     inputLayout = [
         [
-            sg.In(visible=False, enable_events=True, key="saveSimulation"),
-            sg.FileSaveAs("Save simulation", target="saveSimulation")
+            sg.Button("Save simulation", key="saveSimulation")
         ],
         [
             sg.Text("Iterations"),
@@ -478,7 +477,7 @@ def simulate(billiard: Billiard):
         ]
     ]
 
-    window = sg.Window("Dynamical Billiards: Simulate", [
+    window = sg.Window(f"Dynamical Billiards: Simulate {name}", [
         [
             sg.Column(inputLayout),
             sg.VerticalSeparator(),
@@ -523,12 +522,51 @@ def simulate(billiard: Billiard):
                 iterate_serial(billiard, iterations, GUI=True)
                 sharedTimer.end_operation("iterate_serial", idTimer)
 
+            window.TKroot.title(
+                f"[Unsaved Changes] Dynamical Billiards: Simulate {name}"
+            )
             window.enable()
 
         elif event == "saveSimulation":
-            folder = values["saveSimulation"]
-            billiard.save(folder)
-            sg.popup("Saved successfully!")
+            canceled = False
+            if name == "unnamed":
+                while True:
+                    newName = sg.popup_get_text("Simulation name:")
+
+                    if newName is None:
+                        canceled = True
+                        break
+
+                    if newName in ("unnamed", ""):
+                        sg.popup(f"Invalid simulation name {newName}")
+
+                    folder = os.path.join(
+                        constants["DataFolder"], f"{newName}"
+                    )
+                    if os.path.exists(folder):
+                        overwrite = sg.popup_yes_no(
+                            "A simulation with that name already exists.\
+                            \n Do you want to overwrite it?"
+                        )
+                        if overwrite == "Yes":
+                            name = newName
+                            break
+                    else:
+                        name = newName
+                        break
+
+            if canceled:
+                sg.popup("The simulation was NOT saved.")
+
+            else:
+                folder = os.path.join(
+                    constants["DataFolder"], f"{name}"
+                )
+                billiard.save(folder)
+                sg.popup("The simulation was saved successfully!")
+                window.TKroot.title(
+                    f"Dynamical Billiards: Simulate {name}"
+                )
 
         elif event == "parallel":
             window["threads"].update(visible=not window["threads"].visible)
@@ -683,7 +721,7 @@ def load_simulation():
             billiard = Billiard.load(path)
 
             window.hide()
-            nextResponse = simulate(billiard)
+            nextResponse = simulate(billiard, selectedConditions[0])
             if nextResponse == constants["CLOSE_WINDOW"]:
                 windowResponse = nextResponse
                 break
