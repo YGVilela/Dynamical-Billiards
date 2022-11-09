@@ -2,11 +2,14 @@ import os
 from pathlib import Path
 import sys
 from typing import List
-from billiards.billiards import Billiard, iterate_parallel, iterate_serial
+from billiards.billiards import iterate_parallel, iterate_serial
 from billiards.geometry import ComposedPath, SimplePath
 from billiards.graphics import GraphicsMatPlotLib
-from billiards.input import Input, PathParams
+from billiards.input import PathParams, SimulationConfig
 from billiards.time import sharedTimer
+from billiards.data_manager import DataManager
+
+dm = DataManager()
 
 
 def getBoundary(pathParams: List[PathParams]):
@@ -26,43 +29,64 @@ def getBoundary(pathParams: List[PathParams]):
 
 if __name__ == "__main__":
     # Init objects from given argument
-    parameters = Input(sys.argv[1])
-    pathParams = parameters.paths
-    boundary = getBoundary(pathParams)
-    billiard = Billiard(
-        boundary,
-        initialConditions=parameters.initialConditions,
-        method=parameters.method,
-        orbitsFolder=parameters.orbitsFolder
-    )
+    simulationConfig = SimulationConfig(sys.argv[1])
 
     # Execute dynamics
-    if parameters.parallelize:
+    if simulationConfig.parallel:
         idTimer = sharedTimer.start_operation("iterate_parallel")
-        iterate_parallel(billiard, parameters.iterations, parameters.threads)
+        iterate_parallel(
+            simulationConfig.billiard,
+            simulationConfig.iterations,
+            simulationConfig.threads,
+            method=simulationConfig.method
+        )
         sharedTimer.end_operation("iterate_parallel", idTimer)
     else:
         idTimer = sharedTimer.start_operation("iterate_serial")
-        iterate_serial(billiard, parameters.iterations)
+        iterate_serial(
+            simulationConfig.billiard,
+            simulationConfig.iterations,
+            method=simulationConfig.method
+        )
         sharedTimer.end_operation("iterate_serial", idTimer)
 
-    # Save trajectories and orbit
-    figure = None
-    if parameters.show or parameters.saveImage:
+    # Update orbits
+    dm.upsert_simulation_orbits(
+        simulationConfig.name,
+        simulationConfig.billiard.orbits
+    )
+
+    # Save figures
+    if simulationConfig.saveImagesAt is not None:
+        Path(simulationConfig).mkdir(exist_ok=True)
+
+        trajectory = GraphicsMatPlotLib(
+            simulationConfig.billiard.boundary,
+            simulationConfig.billiard.orbits
+        ).plot(plotBoundary=True, plotPhase=False)
+        phase = GraphicsMatPlotLib(
+            simulationConfig.billiard.boundary,
+            simulationConfig.billiard.orbits
+        ).plot(plotBoundary=False, plotPhase=True)
+
+        trajectoryPath = os.path.join(
+            simulationConfig.saveImagesAt, "trajectory.png"
+        )
+        GraphicsMatPlotLib.save(trajectory, trajectoryPath)
+
+        phasePath = os.path.join(
+            simulationConfig.saveImagesAt, "phase.png"
+        )
+        GraphicsMatPlotLib.save(phase, phasePath)
+
+    # Show results
+    if simulationConfig.show:
         figure = GraphicsMatPlotLib(
-            billiard.boundary, orbits=billiard.orbits
+            simulationConfig.billiard.boundary,
+            simulationConfig.billiard.orbits
         ).plot()
-    basePath = sys.argv[1].replace(".json", "")
-    if parameters.saveImage or parameters.saveBilliard:
-        Path(basePath).mkdir(exist_ok=True)
 
-    if parameters.show:
-        GraphicsMatPlotLib.show(figure)
-
-    if parameters.saveImage:
-        GraphicsMatPlotLib.save(figure, os.path.join(basePath, "plot.png"))
-
-    if parameters.saveBilliard:
-        billiard.save(basePath)
+        if simulationConfig.show:
+            GraphicsMatPlotLib.show(figure)
 
     print(sharedTimer.stats())

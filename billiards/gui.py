@@ -3,13 +3,14 @@ import PySimpleGUI as sg
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends.backend_tkagg import NavigationToolbar2Tk
 from sympy import parse_expr
+
+
 from billiards.billiards import iterate_parallel, iterate_serial
-
-
 from billiards.data_manager import DataManager, ObjectExistsException
 from billiards.geometry import ComposedPath, SimplePath
 from billiards.graphics import GraphicsMatPlotLib
 from billiards.input import parse_conditions
+from billiards.numeric_methods.index import DEFAULT_METHOD, METHODS
 from billiards.time import sharedTimer
 
 # Todo: Allow user to update the variables on a configurations screen
@@ -202,7 +203,7 @@ def simulation_window(simulationName: str):
     configurations = {
         "parallel": False,
         "threads": 2,
-        "iterationMethod": "Newton"
+        "iterationMethod": DEFAULT_METHOD
     }
 
     inputLayout = [
@@ -390,12 +391,7 @@ def simulation_window(simulationName: str):
 
 
 def update_config_window(currentConfig):
-    # Todo: Load this from the numeric_methods lib
-    methods = [
-        "Bissection",
-        "Newton",
-        "Regula Falsi"
-    ]
+    methods = METHODS.keys()
 
     layout = [
         [
@@ -406,7 +402,7 @@ def update_config_window(currentConfig):
         ],
         [
             sg.Text("Threads:"),
-            sg.Input(
+            sg.In(
                 key="threads", default_text=str(currentConfig["threads"]),
                 size=(5, 1)
             )

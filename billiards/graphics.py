@@ -11,6 +11,7 @@ from billiards.time import sharedTimer as timer
 mpl_use("TkAgg")
 
 
+# Todo: Consider receiving the billiard instead
 class GraphicsMatPlotLib:
     def __init__(
         self,

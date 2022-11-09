@@ -49,6 +49,10 @@ class DataManager:
 
         self.folders = necessaryFolders
 
+    def boundary_exists(self, boundaryName):
+        filePath = os.path.join(self.folders["boundaries"], boundaryName)
+        return os.path.exists(filePath)
+
     def list_boundaries(self):
         return os.listdir(self.folders["boundaries"])
 
@@ -59,6 +63,10 @@ class DataManager:
         boundary = ComposedPath.from_json(componentArray)
 
         return boundary
+
+    def simulation_exists(self, simulationName):
+        filePath = os.path.join(self.folders["simulations"], simulationName)
+        return os.path.exists(filePath)
 
     def list_simulations(self):
         return os.listdir(self.folders["simulations"])

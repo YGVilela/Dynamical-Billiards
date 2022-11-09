@@ -1,21 +1,6 @@
 from typing import List, Callable
 
 
-def find_zero(function: Callable[[float], List[float]], x_1: float,
-              x_2: float, acc=1e-12, max_iter=100, method="Newton"):
-    handler = None
-    if method == "Newton":
-        handler = find_zero_newton
-    elif method == "Regula Falsi":
-        handler = find_zero_regula_falsi
-    elif method == "Bissection":
-        handler = find_zero_bissec
-    else:
-        raise Exception(f"Invalid method {method}")
-
-    return handler(function, x_1, x_2, acc, max_iter)
-
-
 def find_zero_newton(function: Callable[[float], List[float]], x_1: float,
                      x_2: float, acc=0.000000000001, max_iteracao=100):
     '''Implementação do método de Newton

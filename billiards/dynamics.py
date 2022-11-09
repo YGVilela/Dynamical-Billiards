@@ -1,6 +1,6 @@
 from typing import Tuple
 from billiards.geometry import ComposedPath
-from billiards.numeric_methods import find_zero
+from billiards.numeric_methods.index import find_zero
 from math import sin, cos, pi, asin, acos
 
 
