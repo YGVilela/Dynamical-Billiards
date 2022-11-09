@@ -113,6 +113,11 @@ class SimplePath:
             dictionaire["y"],
         )
 
+    def __str__(self):
+        return "t -> (" + str(self.expressionX) + "," + \
+            str(self.expressionY) + "), with t in (" + \
+            str(self.t0) + "," + str(self.t1) + ")"
+
 
 class ComposedPath:
 

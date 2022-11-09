@@ -46,8 +46,6 @@ class Input:
 
         if "method" in params:
             self.method = params["method"]
-        else:
-            self.method = "newton"
 
         self.show = "show" in params and params["show"]
         self.saveImage = "saveImage" in params and params["saveImage"]

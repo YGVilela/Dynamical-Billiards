@@ -1,12 +1,6 @@
 
-import sys
-from billiards.gui import welcome_window
+from billiards.gui import main_window
 
 
 if __name__ == "__main__":
-    if len(sys.argv) >= 2:
-        dataFolder = sys.argv[1]
-    else:
-        dataFolder = "data"
-
-    welcome_window(dataFolder)
+    main_window()

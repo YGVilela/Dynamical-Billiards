@@ -1,11 +1,8 @@
-import json
 from multiprocess import Pool, Process, Manager
-import os
-from pathlib import Path
-from typing import Callable, List, Tuple
+from typing import Callable, List, Optional, Tuple
 from billiards.dynamics import make_billiard_map
 from billiards.geometry import ComposedPath
-from pandas import DataFrame, read_csv
+from pandas import DataFrame
 from billiards.time import sharedTimer as timer
 from PySimpleGUI import Window, ProgressBar
 from progress.bar import Bar
@@ -16,33 +13,35 @@ class Orbit:
     currentCondition: Tuple[float, float]
     points: DataFrame
     billiardMap: Callable[
-        [Tuple[float, float]],
+        [Tuple[float, float], Optional[str]],
         Tuple[Tuple[float, float], Tuple[float, float]]
     ]
 
     def __init__(
         self,
-        billiardMap,
-        pointsCsv: str = None,
-        initialCondition: Tuple[float, float] = None,
-        initialPoint: Tuple[float, float] = None
+        boundary: ComposedPath,
+        points: DataFrame = None,
+        initialCondition: Tuple[float, float] = None
     ):
 
-        self.billiardMap = billiardMap
-        if pointsCsv is not None:
-            dataFrame = read_csv(pointsCsv)
+        self.billiardMap = make_billiard_map(boundary)
+        if points is not None:
+            # Todo: Check if points have the right format
             self.initialCondition = (
-                dataFrame.loc[0]["t"],
-                dataFrame.loc[0]["theta"]
+                points.loc[0]["t"],
+                points.loc[0]["theta"]
             )
             self.currentCondition = (
-                dataFrame.loc[len(dataFrame.index) - 1]["t"],
-                dataFrame.loc[len(dataFrame.index) - 1]["theta"]
+                points.loc[len(points.index) - 1]["t"],
+                points.loc[len(points.index) - 1]["theta"]
             )
-            self.points = dataFrame
+            self.points = points
         elif initialCondition is not None:
             self.initialCondition = initialCondition
             self.currentCondition = initialCondition
+            initialPoint = boundary.get_point(
+                initialCondition[0], evaluate=True
+            )
             self.points = DataFrame([{
                 "t": initialCondition[0],
                 "theta": initialCondition[1],
@@ -51,12 +50,14 @@ class Orbit:
             }])
         else:
             raise Exception(
-                "Csv with dataframe or initial" +
-                "conditions needed to create the orbit."
+                "Dataframe with iterates or initial condition" +
+                "needed to create the orbit."
             )
 
-    def iterate(self):
-        nextCondition, nextPoint = self.billiardMap(self.currentCondition)
+    def iterate(self, method=None):
+        nextCondition, nextPoint = self.billiardMap(
+            self.currentCondition, method=method
+        )
         newRow = [
             nextCondition[0],
             nextCondition[1],
@@ -66,12 +67,6 @@ class Orbit:
         self.points.loc[len(self.points.index)] = newRow
         self.currentCondition = nextCondition
 
-    def save_points(self, folder: str):
-        t, theta = self.initialCondition
-        fileName = str(t) + "_" + str(theta) + ".csv"
-        path = os.path.join(folder, fileName)
-        self.points.to_csv(path, index=False)
-
 
 class Billiard:
     orbits: List[Orbit]
@@ -80,37 +75,30 @@ class Billiard:
     def __init__(
         self,
         boundary: ComposedPath,
-        initialConditions:
-        List[Tuple[float, float]] = [],
-        method="newton",
-        orbitsFolder: str = None
+        initialConditions: List[Tuple[float, float]] = [],
+        orbits: List[Orbit] = None
     ):
 
-        billiardMap = make_billiard_map(boundary, method=method)
-        self.billiardMap = billiardMap
-        self.orbits = [
-            Orbit(
-                billiardMap,
-                initialCondition=t,
-                initialPoint=boundary.get_point(t[0], evaluate=True)
-            ) for t in initialConditions
-        ]
         self.boundary = boundary
-        if orbitsFolder is not None:
-            for fileName in os.listdir(orbitsFolder):
-                if fileName.endswith(".csv"):
-                    self.orbits.append(
-                        Orbit(
-                            billiardMap,
-                            pointsCsv=os.path.join(orbitsFolder, fileName)
-                        )
-                    )
+        if orbits is not None:
+            self.orbits = orbits
+        else:
+            self.orbits = []
+
+        for condition in initialConditions:
+            t = condition[0]
+            self.orbits.append(Orbit(
+                boundary,
+                initialCondition=condition,
+                initialPoint=boundary.get_point(t, evaluate=True)
+            ))
 
     def iterate(
         self,
         indexes: List[int] = None,
         callback=None,
-        iterations=1
+        iterations=1,
+        method: str = None
     ):
         if indexes is None:
             indexes = range(self.orbits.__len__())
@@ -118,7 +106,7 @@ class Billiard:
         for index in indexes:
             for _ in range(iterations):
                 idMap = timer.start_operation("iterate_orbit")
-                self.orbits[index].iterate()
+                self.orbits[index].iterate(method=method)
                 timer.end_operation("iterate_orbit", idMap)
 
                 if callback is not None:
@@ -128,13 +116,14 @@ class Billiard:
         self,
         callback=None,
         iterations=10,
-        poolSize=2
+        poolSize=2,
+        method: str = None
     ):
 
         def iterateOrbit(orbit: Orbit):
             for _ in range(iterations):
                 idMap = timer.start_operation("iterate_orbit")
-                orbit.iterate()
+                orbit.iterate(method=method)
                 timer.end_operation("iterate_orbit", idMap)
 
                 if callback is not None:
@@ -149,43 +138,32 @@ class Billiard:
         for index in range(len(res)):
             self.orbits[index] = res[index]
 
-    def save(self, folder: str):
-        # Saving boundary
-        Path(folder).mkdir(exist_ok=True)
-        boundaryJson = self.boundary.to_json()
-        path = os.path.join(folder, "boundary.json")
-        with open(path, 'w', encoding='utf-8') as f:
-            json.dump(boundaryJson, f, ensure_ascii=False, indent=4)
-
-        # Saving orbits
-        orbitsFolder = os.path.join(folder, "orbits")
-        Path(orbitsFolder).mkdir(exist_ok=True)
-        for orbit in self.orbits:
-            orbit.save_points(orbitsFolder)
-
-    def load(folder: str):
-        path = os.path.join(folder, "boundary.json")
-        dictionary = json.load(open(path))
-        boundary = ComposedPath.from_json(dictionary)
-
-        orbitsFolder = os.path.join(folder, "orbits")
-        return Billiard(boundary, orbitsFolder=orbitsFolder)
-
     def add_orbit(self, initialCondition: Tuple[float, float]):
         newOrbit = Orbit(
-            self.billiardMap,
-            initialCondition=initialCondition,
-            initialPoint=self.boundary.get_point(
-                initialCondition[0], evaluate=True
-            )
+            self.boundary,
+            initialCondition=initialCondition
         )
         self.orbits.append(newOrbit)
+
+    # Todo: Consider keeping only this one
+    def add_orbits(self, initialCondition: List[Tuple[float, float]]):
+        for ic in initialCondition:
+            newOrbit = Orbit(
+                self.boundary,
+                initialCondition=ic
+            )
+            self.orbits.append(newOrbit)
 
     def remove_orbit(self, index):
         return self.orbits.pop(index)
 
 
-def iterate_serial(billiard: Billiard, iterations: int, GUI=False):
+def iterate_serial(
+    billiard: Billiard,
+    iterations: int,
+    GUI: bool = False,
+    method: str = None
+):
     totalIter = iterations * len(billiard.orbits)
     if GUI:
         window = Window(
@@ -208,7 +186,11 @@ def iterate_serial(billiard: Billiard, iterations: int, GUI=False):
         else:
             bar.next()
 
-    billiard.iterate(iterations=iterations, callback=cb)
+    billiard.iterate(
+        iterations=iterations,
+        callback=cb,
+        method=method
+    )
 
     if GUI:
         window.close()
@@ -220,7 +202,8 @@ def iterate_parallel(
     billiard: Billiard,
     iterations: int,
     threads: int,
-    GUI=False
+    GUI: bool = False,
+    method: str = None
 ):
     manager = Manager()
     queue = manager.Queue()
@@ -267,7 +250,10 @@ def iterate_parallel(
     consumer.start()
 
     billiard.iterate_parallel(
-        iterations=iterations, callback=cb, poolSize=threads
+        iterations=iterations,
+        callback=cb,
+        poolSize=threads,
+        method=method
     )
 
     consumer.join()

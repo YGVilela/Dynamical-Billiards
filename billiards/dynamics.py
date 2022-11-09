@@ -33,7 +33,6 @@ def get_objective_function(boundary: ComposedPath, phi0: float, theta0: float):
 def make_billiard_map(
     boundary: ComposedPath,
     factor=100,
-    method="newton",
     **kwargs
 ):
     '''Creates the billiard map for the given boundary.
@@ -57,7 +56,7 @@ def make_billiard_map(
     else:
         raise Exception("Can't simulate on non-periodic boundary")
 
-    def billiard_map(condition: Tuple[float, float]):
+    def billiard_map(condition: Tuple[float, float], method: str = None):
         phi0, theta0 = condition
         func = get_objective_function(boundary, phi0, theta0)
 
