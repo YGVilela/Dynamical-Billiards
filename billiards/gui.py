@@ -397,7 +397,7 @@ def update_config_window(currentConfig):
         "Regula Falsi"
     ]
 
-    input = [
+    layout = [
         [
             sg.Checkbox(
                 "Parallelize", key="parallel",
@@ -424,7 +424,7 @@ def update_config_window(currentConfig):
         ]
     ]
 
-    window = sg.Window("Dynamical Billiards", input, finalize=True)
+    window = sg.Window("Dynamical Billiards", layout, finalize=True)
     while True:
         event, values = window.read()
 
@@ -442,7 +442,7 @@ def update_config_window(currentConfig):
 
 
 def initial_condition_input_window(maxT):
-    input = [
+    layout = [
         [
             sg.Text("T:"),
             sg.Checkbox(
@@ -484,7 +484,7 @@ def initial_condition_input_window(maxT):
         ]
     ]
 
-    window = sg.Window("Dynamical Billiards", input, finalize=True)
+    window = sg.Window("Dynamical Billiards", layout, finalize=True)
 
     newConditions = []
     while True:
@@ -696,9 +696,7 @@ def parametrization_input_window(currentParametrization: SimplePath = None):
         ]
     ]
 
-    window = sg.Window("Dynamical Billiards: Boundary Parametrization",
-                       layout, finalize=True
-                       )
+    window = sg.Window("Dynamical Billiards", layout, finalize=True)
 
     while True:
         event, values = window.read()
@@ -756,7 +754,7 @@ def save_object(objType: str, *args, overwriteByDefault=False):
 
 
 def get_filter(boundaryLength):
-    window = sg.Window("Select the filter", [
+    layout = [
         [
             sg.Text("t between"),
             sg.In("0", key="tMin", size=(7, 1)),
@@ -773,7 +771,9 @@ def get_filter(boundaryLength):
             sg.Button("Filter", key="filter"),
             sg.Button("Cancel", key="cancel")
         ]
-    ])
+    ]
+
+    window = sg.Window("Dynamical Billiards", layout, finalize=True)
 
     tRange = None
     thetaRange = None
