@@ -1,6 +1,6 @@
 from typing import Callable, List
-import billiards.numeric_methods.methods as methods
 
+import billiards.numeric_methods.methods as methods
 
 METHODS = {
     "Bissection": methods.find_zero_bissec,
