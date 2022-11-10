@@ -391,7 +391,7 @@ def simulation_window(simulationName: str):
 
 
 def update_config_window(currentConfig):
-    methods = METHODS.keys()
+    methods = list(METHODS.keys())
 
     layout = [
         [

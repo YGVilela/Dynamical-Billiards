@@ -119,8 +119,10 @@ class GraphicsMatPlotLib:
 
         return fig
 
-    def show(figure):
-        plt_figure(figure.number)
+    def show(figure=None):
+        if figure is not None:
+            plt_figure(figure.number)
+
         plt_show()
 
     def save(figure, path: str):

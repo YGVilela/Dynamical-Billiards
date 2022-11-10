@@ -80,7 +80,7 @@ class SimulationConfig:
 
 def load_boundary_from_params(boundaryParams):
     boundaryName = boundaryParams["name"]
-    if not dm.boundary_exists(boundaryParams):
+    if not dm.boundary_exists(boundaryName):
         boundary = ComposedPath.from_json(boundaryParams["paths"])
 
         dm.create_boundary(boundaryName, boundary)

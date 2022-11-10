@@ -1,31 +1,13 @@
 import os
 from pathlib import Path
 import sys
-from typing import List
 from billiards.billiards import iterate_parallel, iterate_serial
-from billiards.geometry import ComposedPath, SimplePath
 from billiards.graphics import GraphicsMatPlotLib
-from billiards.input import PathParams, SimulationConfig
+from billiards.input import SimulationConfig
 from billiards.time import sharedTimer
 from billiards.data_manager import DataManager
 
 dm = DataManager()
-
-
-def getBoundary(pathParams: List[PathParams]):
-    paths = []
-    for params in pathParams:
-        paths.append(SimplePath(params.t0, params.t1, params.x, params.y))
-
-    composed = ComposedPath(paths)
-    if not composed.is_closed():
-        raise Exception("Can't simmulate on non-closed curves.")
-
-    if not composed.is_continuous():
-        raise Exception("Can't simmulate on discontinuous curves.")
-
-    return composed
-
 
 if __name__ == "__main__":
     # Init objects from given argument
@@ -58,7 +40,7 @@ if __name__ == "__main__":
 
     # Save figures
     if simulationConfig.saveImagesAt is not None:
-        Path(simulationConfig).mkdir(exist_ok=True)
+        Path(simulationConfig.saveImagesAt).mkdir(exist_ok=True, parents=True)
 
         trajectory = GraphicsMatPlotLib(
             simulationConfig.billiard.boundary,
@@ -81,12 +63,6 @@ if __name__ == "__main__":
 
     # Show results
     if simulationConfig.show:
-        figure = GraphicsMatPlotLib(
-            simulationConfig.billiard.boundary,
-            simulationConfig.billiard.orbits
-        ).plot()
-
-        if simulationConfig.show:
-            GraphicsMatPlotLib.show(figure)
+        GraphicsMatPlotLib.show()
 
     print(sharedTimer.stats())

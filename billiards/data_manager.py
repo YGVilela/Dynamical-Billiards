@@ -1,7 +1,6 @@
 # Todo: Get this from a file
 import json
 import os
-from PySimpleGUI import popup_yes_no
 from pathlib import Path
 from pandas import read_csv
 
@@ -33,19 +32,8 @@ class DataManager:
         ]
 
         if len(missingFolders) > 0:
-            response = popup_yes_no(
-                f"Missing the folders \n{str(missingFolders)}\
-                \n Create and proceed?"
-            )
-
-            if response == "Yes":
-                for folderPath in missingFolders:
-                    Path(folderPath).mkdir(exist_ok=True)
-            else:
-                raise Exception(
-                    "Can't init DataManager. " +
-                    f"Missing the folders {str(missingFolders)}."
-                )
+            for folderPath in missingFolders:
+                Path(folderPath).mkdir(exist_ok=True, parents=True)
 
         self.folders = necessaryFolders
 
