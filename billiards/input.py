@@ -1,9 +1,14 @@
 
 import json
 from random import uniform
-from typing import List, Tuple
+from billiards.billiards import Billiard
+from billiards.geometry import ComposedPath
+from billiards.numeric_methods.index import DEFAULT_METHOD
 
 from billiards.utils import flat_array, to_number
+from billiards.data_manager import DataManager
+
+dm = DataManager()
 
 
 class PathParams:
@@ -19,48 +24,68 @@ class PathParams:
         self.t1 = dictionaire["t1"]
 
 
-class Input:
-    paths: List[PathParams]
-    initialConditions: List[Tuple[float]]
+class SimulationConfig:
+    name: str
+    billiard: Billiard
     iterations: int
+    parallel: bool
+    threads: int
     method: str
     show: bool
-    saveImage: bool
-    saveBilliard: str
-    orbitsFolder: str
-    parallelize: bool
-    threads: int
+    saveImagesAt: str
 
-    def __init__(self, path):
+    def __init__(self, path: str):
         params = json.load(open(path))
-        self.paths = list(map(PathParams, params["paths"]))
+
+        # Create/load billiard
+        self.name = params["name"]
+        if not dm.simulation_exists(self.name):
+            boundaryName = load_boundary_from_params(params["boundary"])
+
+            dm.create_simulation(self.name, boundaryName)
+
+        self.billiard = dm.load_simulation_billiard(self.name)
+
+        # Add given initial conditions
         if "initialConditions" in params:
             conditionArray = params["initialConditions"]
-            self.initialConditions = flat_array([
+            initialConditions = flat_array([
                 parse_conditions(config) for config in conditionArray
             ])
-        else:
-            self.initialConditions = []
 
-        self.iterations = params["iterations"]
+            self.billiard.add_orbits(initialConditions)
+
+        # Parse simulation configs
+        self.iterations = int(params["iterations"])
+
+        self.parallel = "parallel" in params and params["parallel"]
+
+        if "threads" in params:
+            self.threads = params["threads"]
+        else:
+            self.threads = 2
 
         if "method" in params:
             self.method = params["method"]
         else:
-            self.method = "newton"
+            self.method = DEFAULT_METHOD
 
+        # Parse other variables
         self.show = "show" in params and params["show"]
-        self.saveImage = "saveImage" in params and params["saveImage"]
-        self.saveBilliard = "saveBilliard" in params and params["saveBilliard"]
 
-        if "orbitsFolder" in params:
-            self.orbitsFolder = params["orbitsFolder"]
-        else:
-            self.orbitsFolder = None
+        self.saveImagesAt = None
+        if "saveImagesAt" in params:
+            self.saveImagesAt = params["saveImagesAt"]
 
-        self.parallelize = "parallelize" in params and params["parallelize"]
-        if self.parallelize:
-            self.threads = params["threads"]
+
+def load_boundary_from_params(boundaryParams):
+    boundaryName = boundaryParams["name"]
+    if not dm.boundary_exists(boundaryName):
+        boundary = ComposedPath.from_json(boundaryParams["paths"])
+
+        dm.create_boundary(boundaryName, boundary)
+
+    return boundaryName
 
 
 def parse_conditions(dictionaire):

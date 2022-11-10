@@ -11,6 +11,7 @@ from billiards.time import sharedTimer as timer
 mpl_use("TkAgg")
 
 
+# Todo: Consider receiving the billiard instead
 class GraphicsMatPlotLib:
     def __init__(
         self,
@@ -26,12 +27,18 @@ class GraphicsMatPlotLib:
         self,
         plotBoundary=True,
         plotPhase=True,
-        fig=None
+        fig=None,
+        markerSize=None,
+        orbitIndexes: List[int] = None
     ):
         if fig is None:
             fig = plt_figure()
         else:
             fig.clf(True)
+
+        if orbitIndexes is None:
+            orbitIndexes = range(len(self.orbits))
+
         boundary = self.boundary
 
         # Get boundary
@@ -59,7 +66,8 @@ class GraphicsMatPlotLib:
         trajectoryPoints = []
         # directions = []
         idPlotPath = timer.start_operation("evaluate_orbits")
-        for orbit in self.orbits:
+        for index in orbitIndexes:
+            orbit = self.orbits[index]
             if plotBoundary:
                 trajectoryPoints.append([orbit.points["x"], orbit.points["y"]])
             if plotPhase:
@@ -77,14 +85,14 @@ class GraphicsMatPlotLib:
         else:
             axBoundary = axPhase = fig.add_subplot()
 
-        colors = []
+        # colors = []
         if plotBoundary:
             axBoundary.set_aspect('equal')
             if len(boundaryPoints) > 0:
                 axBoundary.plot(boundaryPoints[0], boundaryPoints[1])
             for x, y in trajectoryPoints:
                 p, = axBoundary.plot(x, y)
-                colors.append([p.get_color()] * len(x))
+                # colors.append([p.get_color()] * len(x))
 
         if plotPhase:
             axPhase.set_aspect('equal')
@@ -98,11 +106,12 @@ class GraphicsMatPlotLib:
                 tArray = concatenate(phasePoints[0])
                 thetaArray = concatenate(phasePoints[1])
                 colorArray = None
-                if len(colors) > 0:
-                    colorArray = concatenate(colors)
+                # if len(colors) > 0:
+                #     colorArray = concatenate(colors)
 
                 # This should be adjusted dynamically
-                markerSize = 20 / max(log(len(tArray), 10), 1)
+                if markerSize is None:
+                    markerSize = 20 / max(10 * log(len(tArray), 10), 1)
 
                 axPhase.scatter(tArray, thetaArray, s=markerSize, c=colorArray)
 
@@ -110,8 +119,10 @@ class GraphicsMatPlotLib:
 
         return fig
 
-    def show(figure):
-        plt_figure(figure.number)
+    def show(figure=None):
+        if figure is not None:
+            plt_figure(figure.number)
+
         plt_show()
 
     def save(figure, path: str):

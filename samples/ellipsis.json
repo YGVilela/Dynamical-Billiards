@@ -1,19 +1,29 @@
 {
-  "paths": [{ "x": "3*cos(t)", "y": "2*sin(t)", "t0": "0", "t1": "2*pi" }],
+  "name": "Ellipsis",
+  "boundary": {
+    "name": "Ellipsis",
+    "paths": [
+      {
+        "x": "3*cos(t)",
+        "y": "2*sin(t)",
+        "t0": "0",
+        "t1": "2*pi"
+      }
+    ]
+  },
   "initialConditions": [
     {
       "t": "Random",
-      "theta": "Random",
       "tRange": [0, "2*pi"],
+      "theta": "Random",
       "thetaRange": [0, "pi"],
-      "instances": 100
+      "instances": 5
     }
   ],
-  "iterations": 10,
-  "method": "newton",
+  "iterations": 100,
+  "method": "Newton",
   "show": true,
-  "saveImage": false,
-  "saveBilliard": false,
-  "parallelize": false,
-  "threads": 10
+  "saveImagesAt": "samples/images/Ellipsis",
+  "parallel": true,
+  "threads": 5
 }
