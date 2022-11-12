@@ -2,6 +2,7 @@ from math import ceil, log, pi
 from typing import List
 
 from matplotlib import use as mpl_use
+from matplotlib.pyplot import close
 from matplotlib.pyplot import figure as plt_figure
 from matplotlib.pyplot import show as plt_show
 from numpy import array, concatenate, linspace
@@ -129,3 +130,6 @@ class GraphicsMatPlotLib:
 
     def save(figure, path: str):
         figure.savefig(path)
+
+    def clear():
+        close("all")

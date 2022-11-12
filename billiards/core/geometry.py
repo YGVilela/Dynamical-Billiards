@@ -1,7 +1,7 @@
 from itertools import tee
 
-from numpy import allclose
-from sympy import Interval, Segment2D, diff, parse_expr, symbols
+from numpy import allclose, concatenate
+from sympy import EmptySet, Interval, Segment2D, diff, parse_expr, symbols
 from sympy.calculus.util import maximum, minimum
 
 from billiards.utils.misc import to_expr
@@ -39,7 +39,9 @@ class SimplePath:
 
     def get_point(self, s, evaluate=False):
         if s < self.t0 or s > self.t1:
-            raise Exception("Parameter outside the path's domain.")
+            raise Exception(
+                f"Parameter {s} not in path's domain ({self.t0}, {self.t1})."
+            )
 
         idGetPoint = timer.start_operation("get_point")
         t = symbols('t')
@@ -120,11 +122,46 @@ class SimplePath:
             str(self.expressionY) + "), with t in (" + \
             str(self.t0) + "," + str(self.t1) + ")"
 
+    def normal_disturb(self, function, domain):
+        pathDomain = Interval(self.t0, self.t1)
+        intersection = pathDomain.intersect(domain)
+        if intersection == EmptySet:
+            raise Exception("Function and path domain don't intersect.")
+
+        newPaths = []
+
+        if intersection.start > self.t0:
+            t0 = self.t0
+            t1 = intersection.start
+            x = self.expressionX
+            y = self.expressionY
+            path = SimplePath(str(t0), str(t1), str(x), str(y))
+            newPaths.append(path)
+
+        t0 = intersection.start
+        t1 = intersection.end
+        x = self.expressionX + self.expressionDy * function
+        y = self.expressionY - self.expressionDx * function
+        path = SimplePath(str(t0), str(t1), str(x), str(y))
+        newPaths.append(path)
+
+        if intersection.end < self.t1:
+            t0 = intersection.end
+            t1 = self.t1
+            x = self.expressionX
+            y = self.expressionY
+            path = SimplePath(str(t0), str(t1), str(x), str(y))
+            newPaths.append(path)
+
+        return newPaths
+
 
 class ComposedPath:
 
     # Todo: Change this "periodic". It's not right
     def __init__(self, paths=[], periodic=True):
+        print("Creating new composed path:")
+
         self.t0 = parse_expr("0")
         self.t1 = parse_expr("0")
         self.paths = []
@@ -181,9 +218,9 @@ class ComposedPath:
         for component in self.paths:
             startPoint = component["relative_t0"]
             endPoint = component["relative_t1"]
-            if s >= startPoint and s <= endPoint:
+            if startPoint <= s <= endPoint:
                 path = component["path"]
-                relative_s = path.t0 + s - component["relative_t0"]
+                relative_s = path.t0 + s - startPoint
 
                 return path.get_point(relative_s, evaluate=evaluate)
 
@@ -274,3 +311,44 @@ class ComposedPath:
         self.t1 = self.t1 + lengthDifference
         self.length = self.t1
         self.lengthFloat = float(self.length.evalf())
+
+    def normal_disturb(self, function, domain):
+        domain[0] = to_expr(domain[0])
+        domain[1] = to_expr(domain[1])
+
+        if domain[0] >= domain[1]:
+            raise Exception(f"Invalid domain: {domain[0]} >= {domain[1]}")
+
+        if domain[0] < self.t0:
+            raise Exception(f"Invalid domain: {domain[0]} < {self.t0}")
+
+        if domain[1] > self.t1:
+            raise Exception(f"Invalid domain: {domain[1]} > {self.t1}")
+
+        domainAsInter = Interval(domain[0], domain[1],
+                                 right_open=True, left_open=True)
+        functionAsExpr = parse_expr(function)
+        newPaths = []
+        for component in self.paths:
+            path = component["path"]
+            relativeDomain = Interval(component["relative_t0"],
+                                      component["relative_t1"],
+                                      right_open=True,
+                                      left_open=True)
+
+            intersection = domainAsInter.intersect(relativeDomain)
+            if intersection == EmptySet:
+                newPaths.append([path])
+                continue
+
+            t = symbols("t")
+            shiftValue = path.t0 - component["relative_t0"]
+            shiftedT = t + shiftValue
+            shiftedFunc = functionAsExpr.subs({t: shiftedT})
+            shiftedDomain = Interval(intersection.start + shiftValue,
+                                     intersection.end + shiftValue)
+
+            disturbedPaths = path.normal_disturb(shiftedFunc, shiftedDomain)
+            newPaths.append(disturbedPaths)
+
+        return ComposedPath(concatenate(newPaths))
