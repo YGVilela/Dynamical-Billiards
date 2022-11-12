@@ -114,7 +114,7 @@ class GraphicsMatPlotLib:
 
                 # This should be adjusted dynamically
                 if markerSize is None:
-                    markerSize = 20 / max(10 * log(len(tArray), 10), 1)
+                    markerSize = 20 / max(5 * log(len(tArray), 10), 1)
 
                 axPhase.scatter(tArray, thetaArray, s=markerSize, c=colorArray)
 

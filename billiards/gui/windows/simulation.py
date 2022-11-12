@@ -18,6 +18,7 @@ dm = DataManager()
 
 
 def simulation_window(simulationName: str):
+    GraphicsMatPlotLib.clear()
     billiard = dm.load_simulation_billiard(simulationName)
 
     listValues = [
@@ -29,8 +30,11 @@ def simulation_window(simulationName: str):
     configurations = {
         "parallel": False,
         "threads": 2,
-        "iterationMethod": DEFAULT_METHOD
+        "iterationMethod": DEFAULT_METHOD,
+        "automarker": True,
+        "markersize": 20
     }
+    markerSize = None
 
     inputLayout = [
         [
@@ -89,7 +93,7 @@ def simulation_window(simulationName: str):
     graph = GraphicsMatPlotLib(
         billiard.boundary, billiard.orbits
     )
-    figure = graph.plot(orbitIndexes=[])
+    figure = graph.plot(orbitIndexes=[], markerSize=markerSize)
     draw_figure_w_toolbar(
         window['canvas'].TKCanvas, figure, window['controlCanvas'].TKCanvas
     )
@@ -134,7 +138,8 @@ def simulation_window(simulationName: str):
 
             plotFigure = graph.plot(
                 orbitIndexes=orbitIndexes,
-                plotBoundary=True, plotPhase=False
+                plotBoundary=True, plotPhase=False,
+                markerSize=markerSize
             )
             plotFigure.show()
 
@@ -143,14 +148,18 @@ def simulation_window(simulationName: str):
 
             plotFigure = graph.plot(
                 orbitIndexes=orbitIndexes,
-                plotBoundary=False, plotPhase=True
+                plotBoundary=False, plotPhase=True,
+                markerSize=markerSize
             )
             plotFigure.show()
 
         elif event == "preview":
             orbitIndexes = window["conditions"].GetIndexes()
 
-            figure = graph.plot(orbitIndexes=orbitIndexes, fig=figure)
+            figure = graph.plot(
+                orbitIndexes=orbitIndexes, fig=figure,
+                markerSize=markerSize
+            )
             draw_figure_w_toolbar(
                 window['canvas'].TKCanvas,
                 figure, window['controlCanvas'].TKCanvas
@@ -209,6 +218,8 @@ def simulation_window(simulationName: str):
 
         elif event == "configureSimulation":
             configurations = update_config_window(configurations)
+            if not configurations["automarker"]:
+                markerSize = configurations["markersize"]
 
         elif event in (sg.WIN_CLOSED, "close"):
             break
