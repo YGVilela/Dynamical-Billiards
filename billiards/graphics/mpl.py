@@ -1,12 +1,14 @@
-from typing import List
-from numpy import linspace, array, concatenate
 from math import ceil, log, pi
-from matplotlib.pyplot import figure as plt_figure, show as plt_show
-from matplotlib import use as mpl_use
+from typing import List
 
-from billiards.billiards import Orbit
-from billiards.geometry import ComposedPath
-from billiards.time import sharedTimer as timer
+from matplotlib import use as mpl_use
+from matplotlib.pyplot import figure as plt_figure
+from matplotlib.pyplot import show as plt_show
+from numpy import array, concatenate, linspace
+
+from billiards.core.dynamics import Orbit
+from billiards.core.geometry import ComposedPath
+from billiards.utils.time import sharedTimer as timer
 
 mpl_use("TkAgg")
 

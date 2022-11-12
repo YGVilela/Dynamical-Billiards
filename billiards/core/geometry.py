@@ -1,9 +1,11 @@
 from itertools import tee
-from sympy import parse_expr, symbols, diff, Segment2D, Interval
-from sympy.calculus.util import maximum, minimum
-from billiards.utils import to_expr
+
 from numpy import allclose
-from billiards.time import sharedTimer as timer
+from sympy import Interval, Segment2D, diff, parse_expr, symbols
+from sympy.calculus.util import maximum, minimum
+
+from billiards.utils.misc import to_expr
+from billiards.utils.time import sharedTimer as timer
 
 
 class SimplePath:

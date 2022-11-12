@@ -1,4 +1,4 @@
-from typing import List, Callable
+from typing import Callable, List
 
 
 def find_zero_newton(function: Callable[[float], List[float]], x_1: float,

@@ -1,12 +1,12 @@
-# Todo: Get this from a file
 import json
 import os
 from pathlib import Path
+
 from pandas import read_csv
 
-from billiards.billiards import Billiard, Orbit
-from billiards.geometry import ComposedPath
-
+from billiards.exceptions import ObjectExistsException
+from billiards.core.dynamics import Billiard, Orbit
+from billiards.core.geometry import ComposedPath
 
 defaultValues = {
     "mainFolder": "data",
@@ -18,6 +18,7 @@ defaultValues = {
 }
 
 
+# Todo: Turn this into a singleton
 class DataManager:
     def __init__(self, envVariables=defaultValues):
         necessaryFolders = {
@@ -107,10 +108,8 @@ class DataManager:
         boundary: ComposedPath,
         overwrite=False
     ):
-        print(f"Trying to create {boundaryName}")
         filePath = os.path.join(self.folders["boundaries"], boundaryName)
         if Path(filePath).exists() and not overwrite:
-            print("Already exists!!")
             raise ObjectExistsException(
                 "Another boundary with that name already exists."
             )
@@ -149,8 +148,3 @@ class DataManager:
             orbitPath = os.path.join(orbitsFolder, orbitName)
 
             orbit.points.to_csv(orbitPath, index=False)
-
-
-class ObjectExistsException(BaseException):
-    def __init__(self, message: str):
-        super().__init__(message)
