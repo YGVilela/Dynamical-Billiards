@@ -32,6 +32,19 @@ def update_config_window(currentConfig):
             )
         ],
         [
+            sg.Text("Marker size:"),
+            sg.Checkbox(
+                "Auto", key="automarker",
+                default=currentConfig["automarker"],
+                enable_events=True
+            ),
+            sg.In(
+                key="markersize", size=(5, 1),
+                default_text=str(currentConfig["markersize"]),
+                visible=(not currentConfig["automarker"])
+            )
+        ],
+        [
             sg.Button("Save", key="save"),
             sg.Button("Cancel", key="cancel")
         ]
@@ -45,9 +58,18 @@ def update_config_window(currentConfig):
             currentConfig["parallel"] = values["parallel"]
             currentConfig["threads"] = int(values["threads"])
             currentConfig["iterationMethod"] = values["iterationMethod"]
+            currentConfig["automarker"] = values["automarker"]
+            currentConfig["markersize"] = int(values["markersize"])
             break
 
-        if event in (sg.WIN_CLOSED, "cancel"):
+        elif event == "automarker":
+            v = (not values["automarker"])
+            print(f"New! {v}")
+            window["markersize"].update(
+                visible=(not values["automarker"])
+            )
+
+        elif event in (sg.WIN_CLOSED, "cancel"):
             break
 
     window.close()
