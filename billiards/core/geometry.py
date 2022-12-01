@@ -1,7 +1,8 @@
 from itertools import tee
 
 from numpy import allclose, concatenate
-from sympy import EmptySet, Interval, Segment2D, diff, parse_expr, symbols
+from sympy import (EmptySet, Interval, Segment2D,
+                   diff, parse_expr, symbols, floor)
 from sympy.calculus.util import maximum, minimum
 
 from billiards.utils.misc import to_expr
@@ -160,8 +161,6 @@ class ComposedPath:
 
     # Todo: Change this "periodic". It's not right
     def __init__(self, paths=[], periodic=True):
-        print("Creating new composed path:")
-
         self.t0 = parse_expr("0")
         self.t1 = parse_expr("0")
         self.paths = []
@@ -319,15 +318,37 @@ class ComposedPath:
         if domain[0] >= domain[1]:
             raise Exception(f"Invalid domain: {domain[0]} >= {domain[1]}")
 
-        if domain[0] < self.t0:
-            raise Exception(f"Invalid domain: {domain[0]} < {self.t0}")
+        if domain[1] - domain[0] > self.length:
+            raise Exception(
+                "Invalid domain: domain's length larger than the path's.")
 
-        if domain[1] > self.t1:
-            raise Exception(f"Invalid domain: {domain[1]} > {self.t1}")
+        rep0 = domain[0] % self.length
+        rep1 = domain[1] % self.length
+        functionAsExpr = parse_expr(function)
+
+        # Disturbing interval doesn't cross the start/end point
+        if rep0 < rep1 or rep1 == 0:
+            if rep1 == 0:
+                rep1 = self.length
+
+            t = symbols("t")
+            representantPeriod = floor(domain[0] / self.length)
+            newTExpr = t + representantPeriod * self.length
+            functionAsExpr = functionAsExpr.subs({t: newTExpr})
+            domain[0] = rep0
+            domain[1] = rep1
+
+        else:
+            repLength = domain[0] + (self.length - rep0)
+            return self.normal_disturb(
+                function, [str(domain[0]), str(repLength)]
+            ).normal_disturb(
+                function, [str(repLength), str(domain[1])]
+            )
 
         domainAsInter = Interval(domain[0], domain[1],
                                  right_open=True, left_open=True)
-        functionAsExpr = parse_expr(function)
+
         newPaths = []
         for component in self.paths:
             path = component["path"]
@@ -351,4 +372,5 @@ class ComposedPath:
             disturbedPaths = path.normal_disturb(shiftedFunc, shiftedDomain)
             newPaths.append(disturbedPaths)
 
-        return ComposedPath(concatenate(newPaths))
+        disturbedCurve = ComposedPath(concatenate(newPaths))
+        return disturbedCurve

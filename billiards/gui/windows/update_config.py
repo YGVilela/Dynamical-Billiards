@@ -63,8 +63,6 @@ def update_config_window(currentConfig):
             break
 
         elif event == "automarker":
-            v = (not values["automarker"])
-            print(f"New! {v}")
             window["markersize"].update(
                 visible=(not values["automarker"])
             )
