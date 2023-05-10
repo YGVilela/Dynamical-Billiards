@@ -102,6 +102,7 @@ def create_boundary_window(baseBoundaryName: str = None):
                 continue
 
             pathIndex = indexes[0]
+            valuesList.pop(pathIndex)
             boundary.remove_path(pathIndex)
 
             window["parts"].update(valuesList)
