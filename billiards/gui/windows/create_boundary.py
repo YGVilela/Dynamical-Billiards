@@ -5,6 +5,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from billiards.core.geometry import ComposedPath
 from billiards.data_manager import DataManager
 from billiards.graphics.mpl import GraphicsMatPlotLib
+from billiards.gui.windows.disturb_boundary import disturb_boundary_window
 from billiards.gui.windows.parametrization_input import \
     parametrization_input_window
 from billiards.gui.windows.save_object import save_object
@@ -28,6 +29,9 @@ def create_boundary_window(baseBoundaryName: str = None):
             sg.Button("Add", key="add"),
             sg.Button("Edit", key="edit"),
             sg.Button("Remove", key="remove")
+        ],
+        [
+            sg.Button("Normal Disturb", key="disturb")
         ],
         [
             sg.Listbox(
@@ -135,6 +139,24 @@ def create_boundary_window(baseBoundaryName: str = None):
                     plotPhase=False, fig=figure
                 )
                 figure.canvas.draw()
+
+        elif event == "disturb":
+            disturbedBoundary = disturb_boundary_window(boundary)
+            if disturbedBoundary is None:
+                continue
+
+            boundary = disturbedBoundary
+
+            valuesList = [
+                str(component["path"])
+                for component in boundary.paths
+            ]
+            window["parts"].update(valuesList)
+
+            figure = GraphicsMatPlotLib(boundary).plot(
+                plotPhase=False, fig=figure
+            )
+            figure.canvas.draw()
 
         elif event in (sg.WIN_CLOSED, "cancel"):
             break

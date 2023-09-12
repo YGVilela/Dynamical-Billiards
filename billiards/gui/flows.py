@@ -12,6 +12,8 @@ def new_simulation_flow():
 
     # Create simulation
     simulationName = save_object("simulation", boundaryName)
+    if simulationName is None:
+        return
 
     # Simulate
     simulation_window(simulationName)
@@ -20,6 +22,8 @@ def new_simulation_flow():
 def load_simulation_flow():
     # Choose simulation
     simulationName = choose_simulation_window()
+    if simulationName is None:
+        return
 
     # Simulate
     simulation_window(simulationName)

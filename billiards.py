@@ -19,6 +19,7 @@ def load_simulation_variables(path: str):
     simulationVars = {}
 
     # Create/load billiard
+    print("Loading billiard")
     simulationVars["name"] = params["name"]
     if not dm.simulation_exists(simulationVars["name"]):
         boundaryName = load_boundary_from_params(params["boundary"])
@@ -29,6 +30,7 @@ def load_simulation_variables(path: str):
         simulationVars["name"])
 
     # Add given initial conditions
+    print("Adding initial conditions")
     if "initialConditions" in params:
         conditionArray = params["initialConditions"]
         initialConditions = flat_array([
@@ -38,6 +40,7 @@ def load_simulation_variables(path: str):
         simulationVars["billiard"].add_orbits(initialConditions)
 
     # Parse simulation configs
+    print("Parsing simulation configs")
     simulationVars["iterations"] = int(params["iterations"])
 
     simulationVars["parallel"] = "parallel" in params and params["parallel"]
@@ -59,8 +62,11 @@ def load_simulation_variables(path: str):
     if "saveImagesAt" in params:
         simulationVars["saveImagesAt"] = params["saveImagesAt"]
 
+    return simulationVars
+
 
 def load_boundary_from_params(boundaryParams):
+    print("Loading boundary")
     boundaryName = boundaryParams["name"]
     if not dm.boundary_exists(boundaryName):
         boundary = ComposedPath.from_json(boundaryParams["paths"])
@@ -76,6 +82,7 @@ if __name__ == "__main__":
 
     # Execute dynamics
     if simulationVars["parallel"]:
+        print("Executing parallel")
         idTimer = sharedTimer.start_operation("iterate_parallel")
         iterate_parallel(
             simulationVars["billiard"],
@@ -85,6 +92,7 @@ if __name__ == "__main__":
         )
         sharedTimer.end_operation("iterate_parallel", idTimer)
     else:
+        print("Executing serial")
         idTimer = sharedTimer.start_operation("iterate_serial")
         iterate_serial(
             simulationVars["billiard"],
@@ -94,12 +102,14 @@ if __name__ == "__main__":
         sharedTimer.end_operation("iterate_serial", idTimer)
 
     # Update orbits
+    print("Updating orbits")
     dm.upsert_simulation_orbits(
         simulationVars["name"],
         simulationVars["billiard"].orbits
     )
 
     # Save figures
+    print("Saving figures")
     if simulationVars["saveImagesAt"] is not None:
         Path(simulationVars["saveImagesAt"]).mkdir(exist_ok=True, parents=True)
 
@@ -123,6 +133,7 @@ if __name__ == "__main__":
         GraphicsMatPlotLib.save(phase, phasePath)
 
     # Show results
+    print("Showing ")
     if simulationVars["show"]:
         GraphicsMatPlotLib.show()
 
