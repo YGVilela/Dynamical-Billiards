@@ -21,11 +21,44 @@ class SimplePath:
         self.lengthFloat = float(self.length.evalf())
 
         t = symbols('t')
-        self.expressionX = parse_expr(x)
-        self.expressionY = parse_expr(y)
+        ################################################################################
+        # Rethink that solution (https://github.com/YGVilela/Dynamical-Billiards/issues/6)
+        maxAttempts = 10
+        currentAttempt = 1
+        while True:
+            try:
+                print(f"Parsing {x}")
+                self.expressionX = parse_expr(x)
+
+                break
+            except BaseException as err:
+                print(f"Error parsing {x}.")
+                print(err.message)
+                currentAttempt += 1
+            
+            if currentAttempt > maxAttempts:
+                print(f"Coudln't parse expression {x} in {maxAttempts}.")
+                raise Exception(f"Coudln't parse expression {x} in {maxAttempts}.")
+
+        currentAttempt = 10
+        while True:
+            try:
+                self.expressionY = parse_expr(y)
+
+                break
+            except BaseException as err:
+                print(f"Error parsing {y}.")
+                print(err.message)
+                currentAttempt += 1
+            
+            if currentAttempt > maxAttempts:
+                print(f"Coudln't parse expression {y} in {maxAttempts}.")
+                raise Exception(f"Coudln't parse expression {y} in {maxAttempts}.")
+        ################################################################################
+
         self.expressionDx = diff(self.expressionX, t)
         self.expressionDy = diff(self.expressionY, t)
-
+        
         self.startpoint = [
             float(self.expressionX.evalf(subs={t: self.t0})),
             float(self.expressionY.evalf(subs={t: self.t0}))

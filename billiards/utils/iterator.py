@@ -104,4 +104,5 @@ def iterate_parallel(
         method=method
     )
 
+    # Bugs when there are no orbits!
     consumer.join()

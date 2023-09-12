@@ -102,8 +102,6 @@ def simulation_window(simulationName: str):
         event, values = window.read()
 
         if event == "iterate":
-            # Todo: Figure out a way to disable without minimizing
-            window.disable()
 
             iterations = int(values["iterations"])
             method = configurations["iterationMethod"]
@@ -127,7 +125,6 @@ def simulation_window(simulationName: str):
             window.TKroot.title(
                 "[Unsaved Iterations] Dynamical Billiards"
             )
-            window.enable()
 
         elif event == "saveSimulation":
             dm.upsert_simulation_orbits(simulationName, billiard.orbits)
