@@ -1,7 +1,7 @@
 
 from multiprocess import Manager, Process
 from progress.bar import Bar
-from PySimpleGUI import ProgressBar, Window
+from PySimpleGUI import ProgressBar, Window, Text
 
 from billiards.core.dynamics import Billiard
 
@@ -59,39 +59,53 @@ def iterate_parallel(
     def cb():
         queue.put(1)
 
+    # TODO: Fix parallel bar problem
     def tick(queue, totalIter):
         currentProgress = 0
-        if GUI:
-            window = Window(
-                "Iterating...",
-                layout=[
-                    [ProgressBar(totalIter, size=(50, 10), key="progress")]
-                ],
-                finalize=True
-            )
-        else:
-            bar = Bar(
-                'Iterating', suffix='%(percent)d%% - %(eta)ds',
-                max=totalIter
-            )
+        #     window = Window(
+        #         "Iterating...",
+        #         layout=[
+        #             [ProgressBar(totalIter, size=(50, 10), key="progress")]
+        #         ],
+        #         finalize=True
+        #     )
+
+        bar = Bar(
+            'Iterating', suffix='%(percent)d%% - %(eta)ds',
+            max=totalIter
+        )
+        
 
         while True:
             queue.get()
             currentProgress += 1
-            if GUI:
-                window["progress"].update(currentProgress)
-            else:
-                bar.next()
+            # if GUI:
+            #     window["progress"].update(currentProgress)
+            bar.next()
 
             if totalIter <= currentProgress:
                 break
 
-        if GUI:
-            window.close()
-        else:
-            bar.finish()
+        bar.finish()
 
     totalIter = iterations * len(billiard.orbits)
+
+    if GUI:
+        window = Window(
+            "Iterating...",
+            layout=[
+                [Text("Check terminal for progress."),]
+            ],
+            finalize=True
+        )
+        # window = Window(
+        #     "Iterating...",
+        #     layout=[
+        #         [ProgressBar(totalIter, size=(50, 10), key="progress")]
+        #     ],
+        #     finalize=True
+        # )
+
     consumer = Process(
         target=tick, args=[queue, totalIter]
     )
@@ -106,3 +120,5 @@ def iterate_parallel(
 
     # Bugs when there are no orbits!
     consumer.join()
+    if GUI:
+        window.close()

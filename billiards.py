@@ -133,8 +133,12 @@ if __name__ == "__main__":
         GraphicsMatPlotLib.save(phase, phasePath)
 
     # Show results
-    print("Showing ")
+    print("Showing", simulationVars["show"])
     if simulationVars["show"]:
-        GraphicsMatPlotLib.show()
+        fig = GraphicsMatPlotLib(
+            simulationVars["billiard"].boundary,
+            simulationVars["billiard"].orbits
+        ).plot()
+        GraphicsMatPlotLib.show(fig)
 
     print(sharedTimer.stats())
